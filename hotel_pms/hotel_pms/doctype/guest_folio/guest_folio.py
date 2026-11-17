@@ -24,7 +24,6 @@ class GuestFolio(Document):
             rate = flt(row.rate)
             row.amount = flt(qty * rate, 2)
 
-            # Auto GST determination if not manually overridden
             if not row.tax_rate and row.charge_type == "Room Rent":
                 if rate > 7500:
                     row.tax_rate = 18.0
@@ -70,7 +69,7 @@ class GuestFolio(Document):
         self.outstanding_balance = flt(self.grand_total - self.total_paid, 2)
 
     @frappe.whitelist()
-    def add_charge(self, charge_type, rate, qty=1, item=None, description=None, room=None):
+    def add_charge(self, charge_type, rate, qty=1, item=None, description=None, room=None, **kwargs):
         """Append a new charge entry and recalculate folio"""
         self.append("charges", {
             "posting_date": today(),
@@ -85,7 +84,7 @@ class GuestFolio(Document):
         return {"status": "success", "outstanding_balance": self.outstanding_balance}
 
     @frappe.whitelist()
-    def create_sales_invoice(self):
+    def create_sales_invoice(self, **kwargs):
         """Generate ERPNext Sales Invoice and post to General Ledger"""
         if self.sales_invoice:
             frappe.throw(_("Sales Invoice {0} already exists for this Folio").format(self.sales_invoice))
@@ -136,19 +135,19 @@ class GuestFolio(Document):
         return inv.name
 
 @frappe.whitelist()
-def add_charge(folio=None, charge_type=None, rate=0, qty=1, item=None, description=None, room=None):
+def add_charge(folio=None, charge_type=None, rate=0, qty=1, item=None, description=None, room=None, **kwargs):
     if not folio and frappe.form_dict.get("name"):
         folio = frappe.form_dict.get("name")
     if not folio:
         frappe.throw(_("Folio ID is required."))
     return frappe.get_doc("Guest Folio", folio).add_charge(
-        charge_type=charge_type, rate=rate, qty=qty, item=item, description=description, room=room
+        charge_type=charge_type, rate=rate, qty=qty, item=item, description=description, room=room, **kwargs
     )
 
 @frappe.whitelist()
-def create_sales_invoice(folio=None):
+def create_sales_invoice(folio=None, **kwargs):
     if not folio and frappe.form_dict.get("name"):
         folio = frappe.form_dict.get("name")
     if not folio:
         frappe.throw(_("Folio ID is required."))
-    return frappe.get_doc("Guest Folio", folio).create_sales_invoice()
+    return frappe.get_doc("Guest Folio", folio).create_sales_invoice(**kwargs)

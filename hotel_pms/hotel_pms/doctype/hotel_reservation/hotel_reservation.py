@@ -57,7 +57,7 @@ class HotelReservation(Document):
                 ), indicator="orange")
 
     @frappe.whitelist()
-    def create_check_in(self, room=None):
+    def create_check_in(self, room=None, reservation=None, **kwargs):
         """Perform Check-In: creates Hotel Stay & Guest Folio, updates Room status"""
         if self.status == "Checked In":
             frappe.throw(_("This reservation is already Checked In."))
@@ -99,7 +99,7 @@ class HotelReservation(Document):
         return stay.name
 
 @frappe.whitelist()
-def create_check_in(reservation=None, room=None):
+def create_check_in(reservation=None, room=None, **kwargs):
     """Module-level wrapper so it can be called both ways"""
     if not reservation and frappe.form_dict.get("name"):
         reservation = frappe.form_dict.get("name")
@@ -115,4 +115,4 @@ def create_check_in(reservation=None, room=None):
         frappe.throw(_("Reservation ID is required for Check-In."))
 
     res_doc = frappe.get_doc("Hotel Reservation", reservation)
-    return res_doc.create_check_in(room=room)
+    return res_doc.create_check_in(room=room, **kwargs)

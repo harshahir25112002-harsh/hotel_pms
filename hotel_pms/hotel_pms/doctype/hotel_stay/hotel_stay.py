@@ -34,7 +34,7 @@ class HotelStay(Document):
             self.db_set("folio", folio.name)
 
     @frappe.whitelist()
-    def process_checkout(self):
+    def process_checkout(self, **kwargs):
         """Checkout workflow: check folio balance, generate invoice, update room to Vacant Dirty, create Housekeeping Task"""
         if self.status == "Checked Out":
             frappe.throw(_("This stay is already checked out."))
@@ -77,7 +77,7 @@ class HotelStay(Document):
         return {"status": "success", "invoice": self.sales_invoice}
 
     @frappe.whitelist()
-    def move_room(self, new_room, reason=None):
+    def move_room(self, new_room, reason=None, **kwargs):
         """Move guest to a new room mid-stay"""
         if self.status != "Active":
             frappe.throw(_("Room movement is only allowed for Active stays."))
@@ -130,17 +130,17 @@ class HotelStay(Document):
         return {"status": "success", "movement": movement.name, "new_room": new_room}
 
 @frappe.whitelist()
-def process_checkout(stay=None):
+def process_checkout(stay=None, **kwargs):
     if not stay and frappe.form_dict.get("name"):
         stay = frappe.form_dict.get("name")
     if not stay:
         frappe.throw(_("Stay ID is required."))
-    return frappe.get_doc("Hotel Stay", stay).process_checkout()
+    return frappe.get_doc("Hotel Stay", stay).process_checkout(**kwargs)
 
 @frappe.whitelist()
-def move_room(stay=None, new_room=None, reason=None):
+def move_room(stay=None, new_room=None, reason=None, **kwargs):
     if not stay and frappe.form_dict.get("name"):
         stay = frappe.form_dict.get("name")
     if not stay:
         frappe.throw(_("Stay ID is required."))
-    return frappe.get_doc("Hotel Stay", stay).move_room(new_room=new_room, reason=reason)
+    return frappe.get_doc("Hotel Stay", stay).move_room(new_room=new_room, reason=reason, **kwargs)
