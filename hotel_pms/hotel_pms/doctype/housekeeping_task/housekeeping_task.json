@@ -1,0 +1,149 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "room",
+  "task_type",
+  "status",
+  "priority",
+  "column_break_1",
+  "assigned_to",
+  "assigned_date",
+  "completed_on",
+  "inspected_by",
+  "section_stock",
+  "consumables_warehouse",
+  "stock_entry",
+  "notes"
+ ],
+ "fields": [
+  {
+   "default": "HKT-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "HKT-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Room",
+   "options": "Hotel Room",
+   "reqd": 1
+  },
+  {
+   "default": "Daily Cleaning",
+   "fieldname": "task_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Task Type",
+   "options": "Daily Cleaning\nCheckout Cleaning\nDeep Cleaning\nTurndown Service\nInspection\nMaintenance Check",
+   "reqd": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nIn Progress\nCompleted\nInspected\nCancelled"
+  },
+  {
+   "default": "Medium",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Priority",
+   "options": "Low\nMedium\nHigh\nUrgent"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Assigned Staff",
+   "options": "Employee"
+  },
+  {
+   "default": "Today",
+   "fieldname": "assigned_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Assigned Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "inspected_by",
+   "fieldtype": "Link",
+   "label": "Inspected By",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "section_stock",
+   "fieldtype": "Section Break",
+   "label": "Consumables & Stock"
+  },
+  {
+   "fieldname": "consumables_warehouse",
+   "fieldtype": "Link",
+   "label": "Consumables Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry (Material Issue)",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes / Instructions"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Hotel PMS",
+ "name": "Housekeeping Task",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "room,task_type,assigned_to,status",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
+

@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "default_price_list",
+  "room_rent_item",
+  "column_break_1",
+  "checkin_time",
+  "checkout_time",
+  "section_accounting",
+  "default_cost_center",
+  "default_income_account",
+  "column_break_2",
+  "default_warehouse",
+  "sales_taxes_template"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_price_list",
+   "fieldtype": "Link",
+   "label": "Default Price List",
+   "options": "Price List"
+  },
+  {
+   "fieldname": "room_rent_item",
+   "fieldtype": "Link",
+   "label": "Default Room Rent Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "checkin_time",
+   "fieldtype": "Time",
+   "label": "Check-in Time",
+   "default": "14:00:00"
+  },
+  {
+   "fieldname": "checkout_time",
+   "fieldtype": "Time",
+   "label": "Check-out Time",
+   "default": "11:00:00"
+  },
+  {
+   "fieldname": "section_accounting",
+   "fieldtype": "Section Break",
+   "label": "Accounting & Stock Defaults"
+  },
+  {
+   "fieldname": "default_cost_center",
+   "fieldtype": "Link",
+   "label": "Default Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "default_income_account",
+   "fieldtype": "Link",
+   "label": "Default Income Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_warehouse",
+   "fieldtype": "Link",
+   "label": "Default Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "sales_taxes_template",
+   "fieldtype": "Link",
+   "label": "Sales Taxes and Charges Template",
+   "options": "Sales Taxes and Charges Template"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Hotel PMS",
+ "name": "Hotel Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "issingle": 1
+}

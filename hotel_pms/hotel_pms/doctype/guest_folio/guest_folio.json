@@ -1,0 +1,253 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "guest",
+  "guest_name",
+  "status",
+  "column_break_1",
+  "company",
+  "posting_date",
+  "stay",
+  "reservation",
+  "section_billing_party",
+  "billing_party_type",
+  "column_break_bp",
+  "corporate_customer",
+  "section_charges",
+  "charges",
+  "section_totals",
+  "total_charges",
+  "total_tax",
+  "grand_total",
+  "column_break_tot",
+  "advance_paid",
+  "payments_received",
+  "total_paid",
+  "outstanding_balance",
+  "section_invoicing",
+  "sales_invoice",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "HF-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "HF-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "guest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Guest (Customer)",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "guest.customer_name",
+   "fieldname": "guest_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Guest Name",
+   "read_only": 1
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Open\nSettled\nCancelled"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stay",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Hotel Stay",
+   "options": "Hotel Stay"
+  },
+  {
+   "fieldname": "reservation",
+   "fieldtype": "Link",
+   "label": "Reservation",
+   "options": "Hotel Reservation"
+  },
+  {
+   "fieldname": "section_billing_party",
+   "fieldtype": "Section Break",
+   "label": "Billing Routing / Corporate Split"
+  },
+  {
+   "default": "Guest",
+   "fieldname": "billing_party_type",
+   "fieldtype": "Select",
+   "label": "Bill To",
+   "options": "Guest\nCompany"
+  },
+  {
+   "fieldname": "column_break_bp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.billing_party_type == 'Company'",
+   "fieldname": "corporate_customer",
+   "fieldtype": "Link",
+   "label": "Corporate Company Account",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "section_charges",
+   "fieldtype": "Section Break",
+   "label": "Folio Charges & Services"
+  },
+  {
+   "fieldname": "charges",
+   "fieldtype": "Table",
+   "label": "Charges",
+   "options": "Hotel Folio Charge"
+  },
+  {
+   "fieldname": "section_totals",
+   "fieldtype": "Section Break",
+   "label": "Financial Summary"
+  },
+  {
+   "default": "0",
+   "fieldname": "total_charges",
+   "fieldtype": "Currency",
+   "label": "Total Net Charges",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "total_tax",
+   "fieldtype": "Currency",
+   "label": "Total Tax",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "grand_total",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Grand Total",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tot",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "advance_paid",
+   "fieldtype": "Currency",
+   "label": "Advance Allocated",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "payments_received",
+   "fieldtype": "Currency",
+   "label": "Payments Received",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "total_paid",
+   "fieldtype": "Currency",
+   "label": "Total Settled",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "outstanding_balance",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Outstanding Dues",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_invoicing",
+   "fieldtype": "Section Break",
+   "label": "ERPNext Invoicing"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Guest Folio",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-11-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Hotel PMS",
+ "name": "Guest Folio",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "guest,guest_name,stay,status",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

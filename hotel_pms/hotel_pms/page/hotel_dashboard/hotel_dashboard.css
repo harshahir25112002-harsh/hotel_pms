@@ -1,0 +1,287 @@
+/* Hotel PMS Dashboard & Room Rack Styling */
+.hotel-dashboard-container {
+    padding: 20px;
+    background-color: var(--bg-light-gray, #f8fafc);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Header & Filters */
+.hotel-dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.hotel-dash-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-color, #1e293b);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hotel-dash-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* KPI Cards Grid */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.kpi-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+.kpi-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+}
+.kpi-occupancy::before { background-color: #3b82f6; }
+.kpi-clean::before { background-color: #10b981; }
+.kpi-dirty::before { background-color: #f59e0b; }
+.kpi-occupied::before { background-color: #6366f1; }
+.kpi-revenue::before { background-color: #8b5cf6; }
+.kpi-dues::before { background-color: #ef4444; }
+
+.kpi-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.kpi-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+}
+.kpi-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+/* Section Header & Matrix Filters */
+.section-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.matrix-filter-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.filter-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    transition: all 0.15s ease;
+}
+.filter-pill.active, .filter-pill:hover {
+    background: #0f172a;
+    color: #ffffff;
+    border-color: #0f172a;
+}
+
+/* Room Rack Grid */
+.room-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+}
+.room-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 14px;
+    border: 1.5px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.room-card:hover {
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+/* Room Status Color Borders */
+.room-card.status-vacant-clean { border-left: 5px solid #10b981; }
+.room-card.status-vacant-dirty { border-left: 5px solid #f59e0b; background-color: #fffdfa; }
+.room-card.status-occupied { border-left: 5px solid #6366f1; background-color: #fafaff; }
+.room-card.status-out-of-order { border-left: 5px solid #94a3b8; opacity: 0.7; }
+
+.room-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.room-number {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+}
+.room-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+.badge-clean { background: #d1fae5; color: #065f46; }
+.badge-dirty { background: #fef3c7; color: #92400e; }
+.badge-occupied { background: #e0e7ff; color: #3730a3; }
+.badge-ooo { background: #f1f5f9; color: #475569; }
+
+.room-type {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+.room-guest {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.room-dates {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+.room-folio-bal {
+    font-size: 11px;
+    font-weight: 700;
+    color: #ef4444;
+    margin-top: 4px;
+}
+
+.room-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+.room-btn-sm {
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+.btn-clean { background: #10b981; color: white; }
+.btn-folio { background: #6366f1; color: white; }
+.btn-checkin { background: #0f172a; color: white; }
+
+/* Operational Lists & Tables */
+.dash-tabs-container {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+.dash-tabs {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.dash-tab {
+    padding: 14px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid transparent;
+}
+.dash-tab.active {
+    color: #0f172a;
+    border-bottom-color: #3b82f6;
+    background: #ffffff;
+}
+.tab-badge {
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+.dash-tab.active .tab-badge {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+.tab-pane {
+    padding: 16px 20px;
+    display: none;
+}
+.tab-pane.active {
+    display: block;
+}
+
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.dash-table th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.dash-table td {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9;
+}
+.dash-table tr:hover {
+    background-color: #f8fafc;
+}
+

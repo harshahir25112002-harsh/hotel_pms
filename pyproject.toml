@@ -1,0 +1,19 @@
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "hotel_pms"
+authors = [
+    { name = "Hotel PMS Team", email = "admin@example.com"}
+]
+description = "Next-Gen Hotel Property Management System (PMS) for ERPNext / Frappe v16"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    # "frappe", # Provided by bench environment
+]
+
+[tool.flit.module]
+name = "hotel_pms"

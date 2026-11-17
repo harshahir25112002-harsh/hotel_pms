@@ -1,0 +1,255 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "guest",
+  "guest_name",
+  "contact_phone",
+  "contact_email",
+  "status",
+  "column_break_1",
+  "company",
+  "arrival_date",
+  "departure_date",
+  "nights",
+  "section_room_details",
+  "room_type",
+  "assigned_room",
+  "rate_plan",
+  "column_break_2",
+  "adults",
+  "children",
+  "room_rate",
+  "estimated_total",
+  "section_financials",
+  "advance_paid",
+  "payment_status",
+  "column_break_3",
+  "stay",
+  "section_cancellation",
+  "cancellation_reason",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "HRES-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "HRES-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "guest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Guest (Customer)",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "guest.customer_name",
+   "fieldname": "guest_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Guest Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "contact_phone",
+   "fieldtype": "Data",
+   "label": "Contact Phone"
+  },
+  {
+   "fieldname": "contact_email",
+   "fieldtype": "Data",
+   "label": "Contact Email"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nConfirmed\nChecked In\nCompleted\nCancelled\nNo Show"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "arrival_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Arrival Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "departure_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Departure Date",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "nights",
+   "fieldtype": "Int",
+   "label": "Nights",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_room_details",
+   "fieldtype": "Section Break",
+   "label": "Room & Tariff Details"
+  },
+  {
+   "fieldname": "room_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Room Type",
+   "options": "Hotel Room Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "assigned_room",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Assigned Room",
+   "options": "Hotel Room"
+  },
+  {
+   "fieldname": "rate_plan",
+   "fieldtype": "Link",
+   "label": "Rate Plan",
+   "options": "Hotel Rate Plan"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "adults",
+   "fieldtype": "Int",
+   "label": "Adults",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "children",
+   "fieldtype": "Int",
+   "label": "Children"
+  },
+  {
+   "fieldname": "room_rate",
+   "fieldtype": "Currency",
+   "label": "Daily Room Rate",
+   "options": "Company:company:default_currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "estimated_total",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Estimated Total",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_financials",
+   "fieldtype": "Section Break",
+   "label": "Advance Payments"
+  },
+  {
+   "default": "0",
+   "fieldname": "advance_paid",
+   "fieldtype": "Currency",
+   "label": "Advance Paid",
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "Unpaid",
+   "fieldname": "payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "Unpaid\nPartially Paid\nFully Paid",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "stay",
+   "fieldtype": "Link",
+   "label": "Active Stay",
+   "options": "Hotel Stay",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_cancellation",
+   "fieldtype": "Section Break",
+   "label": "Cancellation"
+  },
+  {
+   "fieldname": "cancellation_reason",
+   "fieldtype": "Small Text",
+   "label": "Cancellation Reason"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Hotel Reservation",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-11-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Hotel PMS",
+ "name": "Hotel Reservation",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "guest,guest_name,room_type,assigned_room,status",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
+

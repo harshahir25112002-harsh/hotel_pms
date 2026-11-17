@@ -1,0 +1,110 @@
+[
+ {
+  "doctype": "Custom Field",
+  "dt": "Sales Invoice",
+  "fieldname": "hotel_stay",
+  "fieldtype": "Link",
+  "label": "Hotel Stay",
+  "options": "Hotel Stay",
+  "insert_after": "customer_name",
+  "module": "Hotel PMS",
+  "name": "Sales Invoice-hotel_stay",
+  "read_only": 1,
+  "no_copy": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Sales Invoice",
+  "fieldname": "hotel_folio",
+  "fieldtype": "Link",
+  "label": "Hotel Folio",
+  "options": "Guest Folio",
+  "insert_after": "hotel_stay",
+  "module": "Hotel PMS",
+  "name": "Sales Invoice-hotel_folio",
+  "read_only": 1,
+  "no_copy": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Payment Entry",
+  "fieldname": "hotel_reservation",
+  "fieldtype": "Link",
+  "label": "Hotel Reservation",
+  "options": "Hotel Reservation",
+  "insert_after": "party_name",
+  "module": "Hotel PMS",
+  "name": "Payment Entry-hotel_reservation",
+  "read_only": 1,
+  "no_copy": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Payment Entry",
+  "fieldname": "hotel_stay",
+  "fieldtype": "Link",
+  "label": "Hotel Stay",
+  "options": "Hotel Stay",
+  "insert_after": "hotel_reservation",
+  "module": "Hotel PMS",
+  "name": "Payment Entry-hotel_stay",
+  "read_only": 1,
+  "no_copy": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Customer",
+  "fieldname": "is_hotel_guest",
+  "fieldtype": "Check",
+  "label": "Is Hotel Guest",
+  "insert_after": "customer_name",
+  "module": "Hotel PMS",
+  "name": "Customer-is_hotel_guest"
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Customer",
+  "fieldname": "id_proof_type",
+  "fieldtype": "Select",
+  "label": "ID Proof Type",
+  "insert_after": "is_hotel_guest",
+  "module": "Hotel PMS",
+  "name": "Customer-id_proof_type",
+  "options": "\nAadhaar\nPassport\nDriving License\nVoter ID\nPAN\nOther",
+  "depends_on": "eval:doc.is_hotel_guest"
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Customer",
+  "fieldname": "id_proof_no",
+  "fieldtype": "Data",
+  "label": "ID Proof No",
+  "insert_after": "id_proof_type",
+  "module": "Hotel PMS",
+  "name": "Customer-id_proof_no",
+  "depends_on": "eval:doc.is_hotel_guest"
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Customer",
+  "fieldname": "nationality",
+  "fieldtype": "Link",
+  "label": "Nationality",
+  "insert_after": "id_proof_no",
+  "module": "Hotel PMS",
+  "name": "Customer-nationality",
+  "options": "Country",
+  "depends_on": "eval:doc.is_hotel_guest"
+ },
+ {
+  "doctype": "Custom Field",
+  "dt": "Asset",
+  "fieldname": "hotel_room",
+  "fieldtype": "Link",
+  "label": "Hotel Room",
+  "insert_after": "asset_name",
+  "module": "Hotel PMS",
+  "name": "Asset-hotel_room",
+  "options": "Hotel Room"
+ }
+]

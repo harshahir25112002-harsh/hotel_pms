@@ -1,0 +1,167 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "audit_date",
+  "status",
+  "column_break_1",
+  "audited_by",
+  "execution_time",
+  "section_metrics",
+  "total_rooms",
+  "occupied_rooms",
+  "occupancy_rate",
+  "column_break_2",
+  "total_room_revenue",
+  "total_extra_revenue",
+  "total_revenue",
+  "adr",
+  "revpar",
+  "section_log",
+  "audit_log"
+ ],
+ "fields": [
+  {
+   "default": "NA-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "NA-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "audit_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Audit Date",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nCompleted\nFailed"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "audited_by",
+   "fieldtype": "Link",
+   "label": "Audited By",
+   "options": "User"
+  },
+  {
+   "fieldname": "execution_time",
+   "fieldtype": "Datetime",
+   "label": "Execution Timestamp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_metrics",
+   "fieldtype": "Section Break",
+   "label": "Operational Metrics"
+  },
+  {
+   "fieldname": "total_rooms",
+   "fieldtype": "Int",
+   "label": "Total Rooms",
+   "read_only": 1
+  },
+  {
+   "fieldname": "occupied_rooms",
+   "fieldtype": "Int",
+   "label": "Occupied Rooms",
+   "read_only": 1
+  },
+  {
+   "fieldname": "occupancy_rate",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Occupancy Rate %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_room_revenue",
+   "fieldtype": "Currency",
+   "label": "Room Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_extra_revenue",
+   "fieldtype": "Currency",
+   "label": "Extra / Service Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Daily Revenue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "adr",
+   "fieldtype": "Currency",
+   "label": "ADR (Average Daily Rate)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revpar",
+   "fieldtype": "Currency",
+   "label": "RevPAR (Revenue Per Available Room)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_log",
+   "fieldtype": "Section Break",
+   "label": "Execution Log"
+  },
+  {
+   "fieldname": "audit_log",
+   "fieldtype": "Long Text",
+   "label": "Audit Log",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Hotel PMS",
+ "name": "Night Audit",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
+

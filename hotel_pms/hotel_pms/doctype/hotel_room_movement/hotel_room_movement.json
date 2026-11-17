@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-11-17 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "stay",
+  "guest",
+  "from_room",
+  "to_room",
+  "column_break_1",
+  "move_date",
+  "old_rate",
+  "new_rate",
+  "reason"
+ ],
+ "fields": [
+  {
+   "default": "HRM-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "HRM-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "stay",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Hotel Stay",
+   "options": "Hotel Stay",
+   "reqd": 1
+  },
+  {
+   "fieldname": "guest",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Guest",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "from_room",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "From Room",
+   "options": "Hotel Room",
+   "reqd": 1
+  },
+  {
+   "fieldname": "to_room",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "To Room",
+   "options": "Hotel Room",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "move_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Move Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "old_rate",
+   "fieldtype": "Currency",
+   "label": "Old Room Rate"
+  },
+  {
+   "fieldname": "new_rate",
+   "fieldtype": "Currency",
+   "label": "New Room Rate"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Hotel PMS",
+ "name": "Hotel Room Movement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
+
