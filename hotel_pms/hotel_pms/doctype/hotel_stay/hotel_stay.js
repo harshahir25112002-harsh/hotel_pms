@@ -45,8 +45,10 @@ frappe.ui.form.on("Hotel Stay", {
                     primary_action_label: __("Move Room"),
                     primary_action: function(vals) {
                         frm.call({
+                            doc: frm.doc,
                             method: "move_room",
                             args: {
+                                stay: frm.doc.name,
                                 new_room: vals.new_room,
                                 reason: vals.reason
                             },
@@ -65,7 +67,11 @@ frappe.ui.form.on("Hotel Stay", {
             frm.add_custom_button(__("Process Checkout"), function() {
                 frappe.confirm(__("Proceed to check out Stay {0} for Room {1}?", [frm.doc.name, frm.doc.room]), function() {
                     frm.call({
+                        doc: frm.doc,
                         method: "process_checkout",
+                        args: {
+                            stay: frm.doc.name
+                        },
                         callback: function(r) {
                             if (r.message && r.message.status === "success") {
                                 frappe.msgprint(__("Stay checked out successfully! Invoice: {0}", [r.message.invoice || "N/A"]));
@@ -78,4 +84,3 @@ frappe.ui.form.on("Hotel Stay", {
         }
     }
 });
-

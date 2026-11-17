@@ -45,7 +45,6 @@ class GuestFolio(Document):
         self.grand_total = flt(total_charges + total_tax, 2)
 
     def fetch_payments(self):
-        # Fetch advances linked to reservation or stay
         advance = 0.0
         payments = 0.0
 
@@ -111,7 +110,6 @@ class GuestFolio(Document):
         for charge in self.charges:
             item_code = charge.item or settings.room_rent_item
             if not item_code:
-                # Find or use first active service item
                 item_code = frappe.db.get_value("Item", {"is_sales_item": 1}, "name")
 
             inv.append("items", {
@@ -122,7 +120,6 @@ class GuestFolio(Document):
                 "income_account": settings.default_income_account
             })
 
-        # Set tax template if configured
         if settings.sales_taxes_template:
             inv.taxes_and_charges = settings.sales_taxes_template
             inv.set_taxes()
@@ -137,3 +134,21 @@ class GuestFolio(Document):
         self.save(ignore_permissions=True)
 
         return inv.name
+
+@frappe.whitelist()
+def add_charge(folio=None, charge_type=None, rate=0, qty=1, item=None, description=None, room=None):
+    if not folio and frappe.form_dict.get("name"):
+        folio = frappe.form_dict.get("name")
+    if not folio:
+        frappe.throw(_("Folio ID is required."))
+    return frappe.get_doc("Guest Folio", folio).add_charge(
+        charge_type=charge_type, rate=rate, qty=qty, item=item, description=description, room=room
+    )
+
+@frappe.whitelist()
+def create_sales_invoice(folio=None):
+    if not folio and frappe.form_dict.get("name"):
+        folio = frappe.form_dict.get("name")
+    if not folio:
+        frappe.throw(_("Folio ID is required."))
+    return frappe.get_doc("Guest Folio", folio).create_sales_invoice()

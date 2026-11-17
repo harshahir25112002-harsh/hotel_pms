@@ -35,7 +35,9 @@ frappe.ui.form.on("Guest Folio", {
                     ],
                     primary_action_label: __("Post Charge"),
                     primary_action: function(values) {
+                        values.folio = frm.doc.name;
                         frm.call({
+                            doc: frm.doc,
                             method: "add_charge",
                             args: values,
                             callback: function(r) {
@@ -67,7 +69,11 @@ frappe.ui.form.on("Guest Folio", {
                 frm.add_custom_button(__("Generate Sales Invoice"), function() {
                     frappe.confirm(__("Generate Sales Invoice and Settle this Folio?"), function() {
                         frm.call({
+                            doc: frm.doc,
                             method: "create_sales_invoice",
+                            args: {
+                                folio: frm.doc.name
+                            },
                             callback: function(r) {
                                 if (r.message) {
                                     frappe.msgprint(__("Sales Invoice {0} generated successfully.", [r.message]));

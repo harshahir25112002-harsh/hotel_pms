@@ -6,7 +6,12 @@ frappe.ui.form.on("Hotel Reservation", {
                 frm.add_custom_button(__("Check-In"), function() {
                     frappe.confirm(__("Proceed to Check-In for room {0}?", [frm.doc.assigned_room || frm.doc.room_type]), function() {
                         frm.call({
+                            doc: frm.doc,
                             method: "create_check_in",
+                            args: {
+                                reservation: frm.doc.name,
+                                room: frm.doc.assigned_room
+                            },
                             callback: function(r) {
                                 if (r.message) {
                                     frappe.msgprint(__("Checked in successfully! Hotel Stay created: {0}", [r.message]));
@@ -52,4 +57,3 @@ frappe.ui.form.on("Hotel Reservation", {
         }
     }
 });
-

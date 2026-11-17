@@ -8,11 +8,9 @@ class HotelStay(Document):
         self.lock_room_and_create_folio()
 
     def lock_room_and_create_folio(self):
-        # Mark Room as Occupied
         if self.room:
             frappe.db.set_value("Hotel Room", self.room, "status", "Occupied")
 
-        # Create Guest Folio if none exists
         if not self.folio:
             folio = frappe.new_doc("Guest Folio")
             folio.guest = self.guest
@@ -21,7 +19,6 @@ class HotelStay(Document):
             folio.company = self.company
             folio.posting_date = today()
             
-            # Post first night room charge
             settings = frappe.get_single("Hotel Settings")
             folio.append("charges", {
                 "posting_date": today(),
@@ -49,22 +46,18 @@ class HotelStay(Document):
         folio_doc.calculate_totals()
         folio_doc.fetch_payments()
 
-        # If balance remains, warn or settle
         if folio_doc.outstanding_balance > 0:
             frappe.throw(_("Folio {0} has an outstanding balance of {1}. Please collect payment or adjust charges before checkout.").format(
                 folio_doc.name, folio_doc.outstanding_balance
             ))
 
-        # Generate ERPNext Sales Invoice if not exists
         if not folio_doc.sales_invoice and folio_doc.charges:
             inv_name = folio_doc.create_sales_invoice()
             self.sales_invoice = inv_name
 
-        # Mark Room as Vacant Dirty
         if self.room:
             frappe.db.set_value("Hotel Room", self.room, "status", "Vacant Dirty")
 
-            # Auto-create Housekeeping Task for cleaning
             task = frappe.new_doc("Housekeeping Task")
             task.room = self.room
             task.task_type = "Checkout Cleaning"
@@ -78,7 +71,6 @@ class HotelStay(Document):
         self.actual_checkout_date = today()
         self.save(ignore_permissions=True)
 
-        # Update reservation status if linked
         if self.reservation:
             frappe.db.set_value("Hotel Reservation", self.reservation, "status", "Completed")
 
@@ -100,11 +92,9 @@ class HotelStay(Document):
         old_room = self.room
         old_rate = self.room_rate
 
-        # Get new room type rate
         new_room_type = new_room_doc.room_type
         new_rate = frappe.db.get_value("Hotel Room Type", new_room_type, "base_rate") or old_rate
 
-        # Update old room to Vacant Dirty and create housekeeping task
         frappe.db.set_value("Hotel Room", old_room, "status", "Vacant Dirty")
         hk_task = frappe.new_doc("Housekeeping Task")
         hk_task.room = old_room
@@ -115,11 +105,9 @@ class HotelStay(Document):
         hk_task.notes = f"Guest moved to Room {new_room}. Reason: {reason or 'Guest request'}"
         hk_task.insert(ignore_permissions=True)
 
-        # Update new room to Occupied
         new_room_doc.status = "Occupied"
         new_room_doc.save(ignore_permissions=True)
 
-        # Create movement record
         movement = frappe.new_doc("Hotel Room Movement")
         movement.stay = self.name
         movement.guest = self.guest
@@ -131,7 +119,6 @@ class HotelStay(Document):
         movement.new_rate = new_rate
         movement.insert(ignore_permissions=True)
 
-        # Update Stay document
         timestamp = now_datetime().strftime("%Y-%m-%d %H:%M")
         log_entry = f"[{timestamp}] Moved from Room {old_room} (Rate: {old_rate}) to Room {new_room} (Rate: {new_rate}). Reason: {reason or 'N/A'}\n"
         self.movements_log = (self.movements_log or "") + log_entry
@@ -142,3 +129,18 @@ class HotelStay(Document):
 
         return {"status": "success", "movement": movement.name, "new_room": new_room}
 
+@frappe.whitelist()
+def process_checkout(stay=None):
+    if not stay and frappe.form_dict.get("name"):
+        stay = frappe.form_dict.get("name")
+    if not stay:
+        frappe.throw(_("Stay ID is required."))
+    return frappe.get_doc("Hotel Stay", stay).process_checkout()
+
+@frappe.whitelist()
+def move_room(stay=None, new_room=None, reason=None):
+    if not stay and frappe.form_dict.get("name"):
+        stay = frappe.form_dict.get("name")
+    if not stay:
+        frappe.throw(_("Stay ID is required."))
+    return frappe.get_doc("Hotel Stay", stay).move_room(new_room=new_room, reason=reason)

@@ -9,7 +9,6 @@ class HousekeepingTask(Document):
             self.completed_on = now_datetime()
 
     def on_update(self):
-        # When housekeeping is marked completed/inspected, set room to Vacant Clean
         if self.status in ["Completed", "Inspected"] and self.room:
             current_status = frappe.db.get_value("Hotel Room", self.room, "status")
             if current_status == "Vacant Dirty":
@@ -25,3 +24,10 @@ class HousekeepingTask(Document):
             frappe.db.set_value("Hotel Room", self.room, "status", "Vacant Clean")
         return {"status": "success", "room": self.room, "room_status": "Vacant Clean"}
 
+@frappe.whitelist()
+def mark_completed(task=None):
+    if not task and frappe.form_dict.get("name"):
+        task = frappe.form_dict.get("name")
+    if not task:
+        frappe.throw(_("Task ID is required."))
+    return frappe.get_doc("Housekeeping Task", task).mark_completed()

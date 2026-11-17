@@ -37,7 +37,6 @@ class HotelReservation(Document):
 
     def check_room_availability(self):
         if self.assigned_room and self.status not in ["Cancelled", "Completed"]:
-            # Check if assigned room is already occupied or reserved in overlapping dates
             conflict = frappe.db.sql("""
                 SELECT name FROM `tabHotel Reservation`
                 WHERE assigned_room = %s 
@@ -99,3 +98,21 @@ class HotelReservation(Document):
 
         return stay.name
 
+@frappe.whitelist()
+def create_check_in(reservation=None, room=None):
+    """Module-level wrapper so it can be called both ways"""
+    if not reservation and frappe.form_dict.get("name"):
+        reservation = frappe.form_dict.get("name")
+    if not reservation and frappe.form_dict.get("doc"):
+        import json
+        try:
+            d = json.loads(frappe.form_dict.get("doc"))
+            reservation = d.get("name")
+        except Exception:
+            pass
+
+    if not reservation:
+        frappe.throw(_("Reservation ID is required for Check-In."))
+
+    res_doc = frappe.get_doc("Hotel Reservation", reservation)
+    return res_doc.create_check_in(room=room)
