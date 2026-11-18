@@ -108,11 +108,11 @@ class HotelStay(Document):
         frappe.db.set_value("Hotel Room", old_room, "status", "Vacant Dirty")
         hk_task = frappe.new_doc("Housekeeping Task")
         hk_task.room = old_room
-        hk_task.task_type = "Room Transfer Cleaning"
+        hk_task.task_type = "Checkout Cleaning"
         hk_task.status = "Pending"
         hk_task.priority = "Medium"
         hk_task.assigned_date = today()
-        hk_task.notes = f"Guest moved to Room {new_room}. Reason: {reason or 'Guest request'}"
+        hk_task.notes = f"Room transfer turnover: Guest moved to Room {new_room}. Reason: {reason or 'Guest request'}"
         hk_task.insert(ignore_permissions=True)
 
         new_room_doc.status = "Occupied"
