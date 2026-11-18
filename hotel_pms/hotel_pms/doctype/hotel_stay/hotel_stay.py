@@ -100,14 +100,16 @@ class HotelStay(Document):
         if new_room == self.room:
             frappe.throw(_("New room cannot be the same as the current room."))
 
-        new_room_doc = frappe.get_doc("Hotel Room", new_room)
-        if new_room_doc.status != "Vacant Clean":
-            frappe.throw(_("New room {0} is currently '{1}'. Must be 'Vacant Clean' to move.").format(new_room, new_room_doc.status))
+        room_data = frappe.db.get_value("Hotel Room", new_room, ["status", "room_type"], as_dict=True)
+        if not room_data:
+            frappe.throw(_("Room {0} not found.").format(new_room))
+        if room_data.status != "Vacant Clean":
+            frappe.throw(_("New room {0} is currently '{1}'. Must be 'Vacant Clean' to move.").format(new_room, room_data.status))
 
         old_room = self.room
         old_rate = self.room_rate
 
-        new_room_type = new_room_doc.room_type
+        new_room_type = room_data.room_type
         new_rate = frappe.db.get_value("Hotel Room Type", new_room_type, "base_rate") or old_rate
 
         frappe.db.set_value("Hotel Room", old_room, "status", "Vacant Dirty")

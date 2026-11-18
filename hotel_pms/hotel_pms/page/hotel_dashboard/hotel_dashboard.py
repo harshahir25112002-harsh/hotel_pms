@@ -153,9 +153,11 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
         frappe.throw(_("Room is mandatory."))
 
     # Validate room status
-    room_doc = frappe.get_doc("Hotel Room", room)
-    if room_doc.status != "Vacant Clean":
-        frappe.throw(_("Room {0} is currently '{1}'. Only 'Vacant Clean' rooms can be checked in.").format(room, room_doc.status))
+    room_data = frappe.db.get_value("Hotel Room", room, ["status", "room_type"], as_dict=True)
+    if not room_data:
+        frappe.throw(_("Room {0} not found.").format(room))
+    if room_data.status != "Vacant Clean":
+        frappe.throw(_("Room {0} is currently '{1}'. Only 'Vacant Clean' rooms can be checked in.").format(room, room_data.status))
 
     # 1. Resolve or Create Customer (Guest)
     customer_name = guest_name.strip()
@@ -182,7 +184,7 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
         company = frappe.db.get_value("Company", {}, "name")
 
     if not room_rate:
-        room_rate = frappe.db.get_value("Hotel Room Type", room_doc.room_type, "base_rate") or 0.0
+        room_rate = frappe.db.get_value("Hotel Room Type", room_data.room_type, "base_rate") or 0.0
 
     cin_date = checkin_date or today()
     cout_date = expected_checkout_date or add_days(cin_date, 1)
@@ -191,7 +193,7 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
     stay = frappe.new_doc("Hotel Stay")
     stay.guest = customer
     stay.room = room
-    stay.room_type = room_doc.room_type
+    stay.room_type = room_data.room_type
     stay.company = company
     stay.checkin_date = cin_date
     stay.expected_checkout_date = cout_date

@@ -66,16 +66,18 @@ class HotelReservation(Document):
         if not room_to_assign:
             frappe.throw(_("Please assign a room before checking in."))
 
-        room_doc = frappe.get_doc("Hotel Room", room_to_assign)
-        if room_doc.status == "Occupied":
+        room_data = frappe.db.get_value("Hotel Room", room_to_assign, ["status", "room_type"], as_dict=True)
+        if not room_data:
+            frappe.throw(_("Room {0} not found.").format(room_to_assign))
+        if room_data.status == "Occupied":
             frappe.throw(_("Room {0} is currently occupied.").format(room_to_assign))
 
-        # 1. Create Hotel Stay
+        # 1. Create Hotel Stay (which locks room as Occupied in after_insert)
         stay = frappe.new_doc("Hotel Stay")
         stay.reservation = self.name
         stay.guest = self.guest
         stay.room = room_to_assign
-        stay.room_type = self.room_type
+        stay.room_type = self.room_type or room_data.room_type
         stay.company = self.company
         stay.checkin_date = today()
         stay.expected_checkout_date = self.departure_date
@@ -85,11 +87,7 @@ class HotelReservation(Document):
         stay.status = "Active"
         stay.insert(ignore_permissions=True)
 
-        # 2. Update Room status to Occupied
-        room_doc.status = "Occupied"
-        room_doc.save(ignore_permissions=True)
-
-        # 3. Update Reservation status using db_set so it works regardless of docstatus
+        # 2. Update Reservation status using db_set so it works regardless of docstatus
         self.db_set("status", "Checked In")
         self.db_set("assigned_room", room_to_assign)
         self.db_set("stay", stay.name)
