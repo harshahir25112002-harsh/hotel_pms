@@ -25,6 +25,9 @@ class NightAudit(Document):
         posted_count = 0
         room_revenue = 0.0
         settings = frappe.get_single("Hotel Settings")
+        rent_item = settings.room_rent_item
+        if not rent_item:
+            rent_item = frappe.db.get_value("Item", {"is_sales_item": 1}, "name")
 
         for stay in active_stays:
             if not stay.folio:
@@ -44,7 +47,7 @@ class NightAudit(Document):
                 folio_doc.append("charges", {
                     "posting_date": self.audit_date,
                     "charge_type": "Room Rent",
-                    "item": settings.room_rent_item,
+                    "item": rent_item,
                     "description": f"Room {stay.room} Night Tariff - {self.audit_date}",
                     "room": stay.room,
                     "qty": 1,
@@ -88,6 +91,20 @@ class NightAudit(Document):
         self.save(ignore_permissions=True)
 
         return {"status": "success", "occupancy": occupancy_rate, "total_revenue": self.total_revenue}
+
+@frappe.whitelist()
+def run_audit(name=None, **kwargs):
+    if not name and frappe.form_dict.get("name"):
+        name = frappe.form_dict.get("name")
+    if not name and frappe.form_dict.get("doc"):
+        doc = frappe.form_dict.get("doc")
+        if isinstance(doc, str):
+            import json
+            doc = json.loads(doc)
+        name = doc.get("name")
+    if not name:
+        frappe.throw(_("Night Audit ID is required."))
+    return frappe.get_doc("Night Audit", name).run_audit()
 
 def execute_daily_night_audit():
     """Hook scheduler function to run automatically at 02:00 AM"""

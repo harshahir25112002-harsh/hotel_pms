@@ -4,6 +4,7 @@ frappe.ui.form.on("Night Audit", {
             frm.add_custom_button(__("Run Night Audit Now"), function() {
                 frappe.confirm(__("Run Night Audit for {0}? This will post daily room charges and calculate hotel revenue metrics.", [frm.doc.audit_date]), function() {
                     frm.call({
+                        doc: frm.doc,
                         method: "run_audit",
                         callback: function(r) {
                             if (r.message && r.message.status === "success") {
