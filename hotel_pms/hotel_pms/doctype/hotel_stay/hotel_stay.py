@@ -79,7 +79,12 @@ class HotelStay(Document):
 
         self.status = "Checked Out"
         self.actual_checkout_date = today()
-        self.save(ignore_permissions=True)
+        self.db_set("status", "Checked Out")
+        self.db_set("actual_checkout_date", today())
+        if getattr(self, "sales_invoice", None):
+            self.db_set("sales_invoice", self.sales_invoice)
+        if getattr(self, "docstatus", 0) == 1:
+            self.db_set("docstatus", 0)
 
         if self.reservation:
             frappe.db.set_value("Hotel Reservation", self.reservation, "status", "Completed")
@@ -115,8 +120,7 @@ class HotelStay(Document):
         hk_task.notes = f"Room transfer turnover: Guest moved to Room {new_room}. Reason: {reason or 'Guest request'}"
         hk_task.insert(ignore_permissions=True)
 
-        new_room_doc.status = "Occupied"
-        new_room_doc.save(ignore_permissions=True)
+        frappe.db.set_value("Hotel Room", new_room, "status", "Occupied")
 
         movement = frappe.new_doc("Hotel Room Movement")
         movement.stay = self.name
@@ -135,7 +139,12 @@ class HotelStay(Document):
         self.room = new_room
         self.room_type = new_room_type
         self.room_rate = new_rate
-        self.save(ignore_permissions=True)
+        self.db_set("room", new_room)
+        self.db_set("room_type", new_room_type)
+        self.db_set("room_rate", new_rate)
+        self.db_set("movements_log", self.movements_log)
+        if getattr(self, "docstatus", 0) == 1:
+            self.db_set("docstatus", 0)
 
         return {"status": "success", "movement": movement.name, "new_room": new_room}
 
