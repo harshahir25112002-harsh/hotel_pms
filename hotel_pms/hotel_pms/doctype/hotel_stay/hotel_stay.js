@@ -1,6 +1,6 @@
 frappe.ui.form.on("Hotel Stay", {
     refresh: function(frm) {
-        if (!frm.is_new() && frm.doc.docstatus === 1 && frm.doc.status === "Active") {
+        if (!frm.is_new() && frm.doc.status === "Active") {
             // View Folio button
             if (frm.doc.folio) {
                 frm.add_custom_button(__("View Folio"), function() {

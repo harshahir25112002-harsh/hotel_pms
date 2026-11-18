@@ -78,7 +78,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Draft\nConfirmed\nChecked In\nCompleted\nCancelled\nNo Show"
+   "options": "Draft\nConfirmed\nChecked In\nCompleted\nCancelled\nNo Show",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "column_break_1",
@@ -104,14 +105,16 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Departure Date",
-   "reqd": 1
+   "reqd": 1,
+   "allow_on_submit": 1
   },
   {
    "default": "1",
    "fieldname": "nights",
    "fieldtype": "Int",
    "label": "Nights",
-   "read_only": 1
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "fieldname": "section_room_details",
@@ -132,7 +135,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Assigned Room",
-   "options": "Hotel Room"
+   "options": "Hotel Room",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "rate_plan",
@@ -170,7 +174,8 @@
    "in_list_view": 1,
    "label": "Estimated Total",
    "options": "Company:company:default_currency",
-   "read_only": 1
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "fieldname": "section_financials",
@@ -183,7 +188,8 @@
    "fieldtype": "Currency",
    "label": "Advance Paid",
    "options": "Company:company:default_currency",
-   "read_only": 1
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "default": "Unpaid",
@@ -191,7 +197,8 @@
    "fieldtype": "Select",
    "label": "Payment Status",
    "options": "Unpaid\nPartially Paid\nFully Paid",
-   "read_only": 1
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "fieldname": "column_break_3",
@@ -202,7 +209,8 @@
    "fieldtype": "Link",
    "label": "Active Stay",
    "options": "Hotel Stay",
-   "read_only": 1
+   "read_only": 1,
+   "allow_on_submit": 1
   },
   {
    "fieldname": "section_cancellation",
@@ -212,7 +220,8 @@
   {
    "fieldname": "cancellation_reason",
    "fieldtype": "Small Text",
-   "label": "Cancellation Reason"
+   "label": "Cancellation Reason",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "amended_from",
@@ -252,4 +261,3 @@
  "sort_order": "DESC",
  "track_changes": 1
 }
-

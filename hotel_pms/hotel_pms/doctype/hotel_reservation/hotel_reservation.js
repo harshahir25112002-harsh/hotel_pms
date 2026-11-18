@@ -1,7 +1,7 @@
 frappe.ui.form.on("Hotel Reservation", {
     refresh: function(frm) {
-        if (!frm.is_new() && frm.doc.docstatus === 1) {
-            // Check-In button
+        if (!frm.is_new()) {
+            // Check-In button available for Draft or Confirmed
             if (frm.doc.status === "Confirmed" || frm.doc.status === "Draft") {
                 frm.add_custom_button(__("Check-In"), function() {
                     frappe.confirm(__("Proceed to Check-In for room {0}?", [frm.doc.assigned_room || frm.doc.room_type]), function() {
@@ -24,7 +24,7 @@ frappe.ui.form.on("Hotel Reservation", {
             }
 
             // Record Advance Payment button
-            if (frm.doc.payment_status !== "Fully Paid") {
+            if (frm.doc.payment_status !== "Fully Paid" && frm.doc.status !== "Cancelled") {
                 frm.add_custom_button(__("Record Advance Payment"), function() {
                     frappe.new_doc("Payment Entry", {
                         payment_type: "Receive",

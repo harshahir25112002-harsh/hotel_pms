@@ -70,7 +70,7 @@ class HotelReservation(Document):
         if room_doc.status == "Occupied":
             frappe.throw(_("Room {0} is currently occupied.").format(room_to_assign))
 
-        # Create Hotel Stay
+        # 1. Create Hotel Stay
         stay = frappe.new_doc("Hotel Stay")
         stay.reservation = self.name
         stay.guest = self.guest
@@ -84,17 +84,15 @@ class HotelReservation(Document):
         stay.children = self.children
         stay.status = "Active"
         stay.insert(ignore_permissions=True)
-        stay.submit()
 
-        # Update Room status to Occupied
+        # 2. Update Room status to Occupied
         room_doc.status = "Occupied"
         room_doc.save(ignore_permissions=True)
 
-        # Update Reservation status
-        self.status = "Checked In"
-        self.assigned_room = room_to_assign
-        self.stay = stay.name
-        self.save(ignore_permissions=True)
+        # 3. Update Reservation status using db_set so it works regardless of docstatus
+        self.db_set("status", "Checked In")
+        self.db_set("assigned_room", room_to_assign)
+        self.db_set("stay", stay.name)
 
         return stay.name
 

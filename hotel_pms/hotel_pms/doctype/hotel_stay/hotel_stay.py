@@ -4,13 +4,15 @@ from frappe.model.document import Document
 from frappe.utils import flt, nowdate, today, date_diff, now_datetime
 
 class HotelStay(Document):
-    def on_submit(self):
+    def after_insert(self):
         self.lock_room_and_create_folio()
 
     def lock_room_and_create_folio(self):
+        # 1. Mark Room as Occupied
         if self.room:
             frappe.db.set_value("Hotel Room", self.room, "status", "Occupied")
 
+        # 2. Create Guest Folio if none exists
         if not self.folio:
             folio = frappe.new_doc("Guest Folio")
             folio.guest = self.guest
@@ -20,10 +22,14 @@ class HotelStay(Document):
             folio.posting_date = today()
             
             settings = frappe.get_single("Hotel Settings")
+            rent_item = settings.room_rent_item
+            if not rent_item:
+                rent_item = frappe.db.get_value("Item", {"is_sales_item": 1}, "name")
+
             folio.append("charges", {
                 "posting_date": today(),
                 "charge_type": "Room Rent",
-                "item": settings.room_rent_item,
+                "item": rent_item,
                 "description": f"Room {self.room} Rent - {today()}",
                 "room": self.room,
                 "qty": 1,
@@ -46,18 +52,22 @@ class HotelStay(Document):
         folio_doc.calculate_totals()
         folio_doc.fetch_payments()
 
+        # If balance remains, prompt user to settle
         if folio_doc.outstanding_balance > 0:
-            frappe.throw(_("Folio {0} has an outstanding balance of {1}. Please collect payment or adjust charges before checkout.").format(
+            frappe.throw(_("Folio {0} has an outstanding balance of {1}. Please collect payment before checking out.").format(
                 folio_doc.name, folio_doc.outstanding_balance
             ))
 
+        # Generate ERPNext Sales Invoice if not exists
         if not folio_doc.sales_invoice and folio_doc.charges:
             inv_name = folio_doc.create_sales_invoice()
             self.sales_invoice = inv_name
 
+        # Mark Room as Vacant Dirty
         if self.room:
             frappe.db.set_value("Hotel Room", self.room, "status", "Vacant Dirty")
 
+            # Auto-create Housekeeping Task for cleaning
             task = frappe.new_doc("Housekeeping Task")
             task.room = self.room
             task.task_type = "Checkout Cleaning"
