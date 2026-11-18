@@ -1,0 +1,205 @@
+{
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Hotel PMS Overview\",\"col\":12}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Front Desk Dashboard\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hotel Room\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hotel Reservation\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hotel Stay\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Guest Folio\",\"col\":4}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Housekeeping Task\",\"col\":4}}]",
+ "custom_blocks": [],
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "hotel",
+ "indicator_color": "green",
+ "is_standard": 1,
+ "label": "Hotel PMS",
+ "links": [
+  {
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Front Desk & Operations",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "CardBreak"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Reservation",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Reservation",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Stay",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Stay",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Guest Folio",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Guest Folio",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Room Movement",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Room Movement",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Room & Property Masters",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "CardBreak"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Room",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Room",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Room Type",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Room Type",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Rate Plan",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Rate Plan",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Service Item",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Service Item",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Management & Audit",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "CardBreak"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Housekeeping Task",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Housekeeping Task",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Night Audit",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Night Audit",
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_quick_entry": 0,
+   "label": "Hotel Settings",
+   "link_count": 0,
+   "link_type": "DocType",
+   "link_to": "Hotel Settings",
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-11-18 00:00:00.000000",
+ "module": "Hotel PMS",
+ "name": "Hotel PMS",
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Front Desk Dashboard",
+   "link_to": "hotel_dashboard",
+   "type": "Page"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Hotel Room",
+   "link_to": "Hotel Room",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "List",
+   "label": "Hotel Reservation",
+   "link_to": "Hotel Reservation",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Hotel Stay",
+   "link_to": "Hotel Stay",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "label": "Guest Folio",
+   "link_to": "Guest Folio",
+   "type": "DocType"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "List",
+   "label": "Housekeeping Task",
+   "link_to": "Housekeeping Task",
+   "type": "DocType"
+  }
+ ],
+ "title": "Hotel PMS"
+}
