@@ -1,15 +1,31 @@
+function validate_reservation_phone(phone) {
+    let raw = (phone || "").toString().trim().replace(/[\s\-\(\)\+]/g, "");
+    let clean = raw.replace(/\D/g, "");
+    if (clean.length === 12 && clean.startsWith("91")) clean = clean.substring(2);
+    if (clean.length === 11 && clean.startsWith("0")) clean = clean.substring(1);
+
+    if (clean.length !== 10) {
+        return { valid: false, message: __("Contact Phone must be exactly 10 digits (currently {0} digits).", [clean.length]) };
+    }
+    if (!/^[6-9]\d{9}$/.test(clean)) {
+        return { valid: false, message: __("Invalid Mobile Number. As per TRAI standards, Indian mobile numbers must start with 6, 7, 8, or 9.") };
+    }
+    if (new Set(clean).size <= 1) {
+        return { valid: false, message: __("Mobile number cannot consist of all identical digits.") };
+    }
+    return { valid: true, clean: clean };
+}
+
 frappe.ui.form.on("Hotel Reservation", {
     validate: function(frm) {
         if (frm.doc.contact_phone) {
-            let clean = frm.doc.contact_phone.replace(/\D/g, "");
-            if (clean.length === 12 && clean.startsWith("91")) clean = clean.substring(2);
-            if (clean.length === 11 && clean.startsWith("0")) clean = clean.substring(1);
-            if (clean.length !== 10) {
-                frappe.msgprint(__("Contact Phone must be exactly 10 digits (e.g. 9876543210)."));
+            let res = validate_reservation_phone(frm.doc.contact_phone);
+            if (!res.valid) {
+                frappe.msgprint(res.message);
                 frappe.validated = false;
                 return;
             }
-            frm.doc.contact_phone = clean;
+            frm.doc.contact_phone = res.clean;
         }
 
         if (frm.doc.arrival_date && frm.doc.departure_date) {

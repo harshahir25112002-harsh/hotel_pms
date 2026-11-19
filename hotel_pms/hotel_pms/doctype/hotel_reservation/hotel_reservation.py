@@ -26,15 +26,8 @@ class HotelReservation(Document):
 
     def validate_guest_contact(self):
         if self.contact_phone:
-            clean = re.sub(r"\D", "", str(self.contact_phone).strip())
-            if len(clean) == 12 and clean.startswith("91"):
-                clean = clean[2:]
-            elif len(clean) == 11 and clean.startswith("0"):
-                clean = clean[1:]
-
-            if len(clean) != 10:
-                frappe.throw(_("Invalid Contact Phone '{0}'. Mobile phone number must be exactly 10 digits (e.g. 9876543210).").format(self.contact_phone))
-            self.contact_phone = clean
+            from hotel_pms.hotel_pms.utils.id_validator import validate_mobile_number
+            self.contact_phone = validate_mobile_number(self.contact_phone, mandatory=False)
 
         if self.contact_email:
             from frappe.utils import validate_email_address

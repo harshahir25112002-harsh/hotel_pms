@@ -25,17 +25,9 @@ class HotelStay(Document):
             frappe.throw(_("Daily Room Rate must be greater than zero."))
 
     def validate_kyc(self):
-        if self.id_proof_type and not self.id_proof_number:
-            frappe.throw(_("ID Proof Number is required when ID Proof Type is selected."))
-        if self.id_proof_number:
-            clean_num = str(self.id_proof_number).strip().replace(" ", "").replace("-", "").upper()
-            if self.id_proof_type == "Aadhaar":
-                clean_digits = re.sub(r"\D", "", clean_num)
-                if len(clean_digits) != 12:
-                    frappe.throw(_("Invalid Aadhaar Number '{0}'. Aadhaar must contain exactly 12 digits.").format(self.id_proof_number))
-            elif self.id_proof_type == "PAN":
-                if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", clean_num):
-                    frappe.throw(_("Invalid PAN format '{0}'. PAN must be exactly 10 characters (e.g. ABCDE1234F).").format(self.id_proof_number))
+        if self.id_proof_type or self.id_proof_number:
+            from hotel_pms.hotel_pms.utils.id_validator import validate_kyc_document
+            self.id_proof_number = validate_kyc_document(self.id_proof_type, self.id_proof_number)
 
     def validate_room_availability(self):
         if self.status == "Active" and self.room:

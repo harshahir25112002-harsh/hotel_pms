@@ -14,6 +14,88 @@ frappe.pages["hotel_dashboard"].on_page_show = function (wrapper) {
     }
 };
 
+// ==============================================================================
+// Official Government & UIDAI Validation Algorithms (Verhoeff Checksum & TRAI Rules)
+// ==============================================================================
+const VERHOEFF_D = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    [1, 2, 3, 4, 0, 6, 7, 8, 9, 5],
+    [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
+    [3, 4, 0, 1, 2, 8, 9, 5, 6, 7],
+    [4, 0, 1, 2, 3, 9, 5, 6, 7, 8],
+    [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
+    [6, 5, 9, 8, 7, 1, 0, 4, 3, 2],
+    [7, 6, 5, 9, 8, 2, 1, 0, 4, 3],
+    [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
+    [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+];
+const VERHOEFF_P = [
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    [1, 5, 7, 6, 2, 8, 3, 0, 9, 4],
+    [5, 8, 0, 3, 7, 9, 6, 1, 4, 2],
+    [8, 9, 1, 6, 0, 4, 3, 5, 2, 7],
+    [9, 4, 5, 3, 1, 2, 6, 8, 7, 0],
+    [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],
+    [2, 7, 9, 3, 8, 0, 6, 4, 1, 5],
+    [7, 0, 4, 6, 9, 1, 3, 2, 5, 8]
+];
+
+function validate_verhoeff_js(str) {
+    if (!str || !/^\d+$/.test(str)) return false;
+    let c = 0;
+    let reversed = str.split("").reverse().map(Number);
+    for (let i = 0; i < reversed.length; i++) {
+        c = VERHOEFF_D[c][VERHOEFF_P[i % 8][reversed[i]]];
+    }
+    return c === 0;
+}
+
+function validate_aadhaar_js(aadhaar) {
+    let clean = (aadhaar || "").toString().replace(/[\s\-]/g, "").replace(/\D/g, "");
+    if (clean.length !== 12) {
+        return { valid: false, message: __("Aadhaar must be exactly 12 digits (currently {0} digits).", [clean.length]), clean: clean };
+    }
+    if (clean[0] === "0" || clean[0] === "1") {
+        return { valid: false, message: __("Invalid Aadhaar: According to UIDAI guidelines, Aadhaar cannot start with 0 or 1."), clean: clean };
+    }
+    if (new Set(clean).size <= 1) {
+        return { valid: false, message: __("Invalid Aadhaar: Aadhaar cannot consist of all repeating identical digits."), clean: clean };
+    }
+    if (!validate_verhoeff_js(clean)) {
+        return { valid: false, message: __("Invalid Aadhaar: Failed UIDAI official Verhoeff checksum algorithm verification."), clean: clean };
+    }
+    return { valid: true, clean: clean, message: __("✓ UIDAI Verhoeff Checksum Verified (Valid Aadhaar)") };
+}
+
+function validate_mobile_js(phone) {
+    let raw = (phone || "").toString().trim().replace(/[\s\-\(\)\+]/g, "");
+    let clean = raw.replace(/\D/g, "");
+    if (clean.length === 12 && clean.startsWith("91")) clean = clean.substring(2);
+    if (clean.length === 11 && clean.startsWith("0")) clean = clean.substring(1);
+
+    if (clean.length !== 10) {
+        return { valid: false, message: __("Mobile Number must be exactly 10 digits (currently {0} digits).", [clean.length]), clean: clean };
+    }
+    if (!/^[6-9]\d{9}$/.test(clean)) {
+        return { valid: false, message: __("Invalid Mobile Number. As per TRAI standards, Indian mobile numbers must start with 6, 7, 8, or 9."), clean: clean };
+    }
+    if (new Set(clean).size <= 1) {
+        return { valid: false, message: __("Invalid Mobile Number. Mobile number cannot consist of all identical digits."), clean: clean };
+    }
+    return { valid: true, clean: clean, message: __("✓ Valid 10-Digit Mobile Number") };
+}
+
+function validate_pan_js(pan) {
+    let clean = (pan || "").toString().trim().replace(/[\s\-]/g, "").toUpperCase();
+    if (clean.length !== 10) {
+        return { valid: false, message: __("PAN must be exactly 10 characters (currently {0} chars).", [clean.length]), clean: clean };
+    }
+    if (!/^[A-Z]{3}[PCHABGJLFT][A-Z][0-9]{4}[A-Z]$/.test(clean)) {
+        return { valid: false, message: __("Invalid PAN structure (expected e.g. ABCDE1234F with 4th character indicating entity status: P, C, H, F, A, T, B, L, J, G)."), clean: clean };
+    }
+    return { valid: true, clean: clean, message: __("✓ Income Tax PAN Verified") };
+}
+
 class HotelDashboard {
     constructor(page) {
         this.page = page;
@@ -453,17 +535,13 @@ class HotelDashboard {
                     return false;
                 }
 
-                // Validation: Mobile Number (strictly 10 digits)
-                let rawPhone = (vals.phone || "").trim();
-                let cleanPhone = rawPhone.replace(/\D/g, "");
-                if (cleanPhone.length === 12 && cleanPhone.startsWith("91")) cleanPhone = cleanPhone.substring(2);
-                if (cleanPhone.length === 11 && cleanPhone.startsWith("0")) cleanPhone = cleanPhone.substring(1);
-
-                if (!rawPhone || cleanPhone.length !== 10) {
-                    frappe.msgprint(__("Mobile Number must be exactly 10 digits (e.g. 9876543210)."));
+                // Validation: Mobile Number (strictly 10 digits starting with 6-9 as per TRAI)
+                let mobileRes = validate_mobile_js(vals.phone);
+                if (!mobileRes.valid) {
+                    frappe.msgprint(mobileRes.message);
                     return false;
                 }
-                vals.phone = cleanPhone;
+                vals.phone = mobileRes.clean;
 
                 // Validation: Email (if entered)
                 if (vals.email && vals.email.trim()) {
@@ -494,23 +572,29 @@ class HotelDashboard {
                     return false;
                 }
 
-                // Validation: KYC Document
+                // Validation: KYC Document (Official UIDAI Verhoeff Checksum & Income Tax Rules)
                 if (vals.id_proof_type && vals.id_proof_number) {
-                    let idNum = vals.id_proof_number.trim().replace(/\s+/g, "");
                     if (vals.id_proof_type === "Aadhaar") {
-                        let cleanAadhaar = idNum.replace(/\D/g, "");
-                        if (cleanAadhaar.length !== 12) {
-                            frappe.msgprint(__("Aadhaar Card number must be exactly 12 digits."));
+                        let aadhaarRes = validate_aadhaar_js(vals.id_proof_number);
+                        if (!aadhaarRes.valid) {
+                            frappe.msgprint(aadhaarRes.message);
                             return false;
                         }
-                        vals.id_proof_number = cleanAadhaar;
+                        vals.id_proof_number = aadhaarRes.clean;
                     } else if (vals.id_proof_type === "PAN") {
-                        let cleanPan = idNum.toUpperCase();
-                        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
-                            frappe.msgprint(__("Invalid PAN Card format (expected e.g. ABCDE1234F)."));
+                        let panRes = validate_pan_js(vals.id_proof_number);
+                        if (!panRes.valid) {
+                            frappe.msgprint(panRes.message);
                             return false;
                         }
-                        vals.id_proof_number = cleanPan;
+                        vals.id_proof_number = panRes.clean;
+                    } else {
+                        let cleanId = vals.id_proof_number.trim().toUpperCase();
+                        if (cleanId.length < 4) {
+                            frappe.msgprint(__("ID Proof number is too short."));
+                            return false;
+                        }
+                        vals.id_proof_number = cleanId;
                     }
                 }
 
@@ -535,61 +619,101 @@ class HotelDashboard {
 
         d.show();
 
-        // Live mask on Phone input: max 10 digits, only numbers
+        // 1. Live feedback & mask on Mobile input: max 10 digits, only numbers
         if (d.fields_dict.phone && d.fields_dict.phone.$input) {
             let $phoneInput = d.fields_dict.phone.$input;
             $phoneInput.attr("maxlength", "10");
             $phoneInput.attr("type", "tel");
-            $phoneInput.on("input", function() {
-                let clean = $(this).val().replace(/\D/g, "");
+            
+            let $phoneFeedback = $(`<div class="live-phone-feedback" style="font-size: 11px; margin-top: 4px; font-weight: 500;"></div>`);
+            $phoneInput.after($phoneFeedback);
+
+            let check_phone_live = () => {
+                let clean = $phoneInput.val().replace(/\D/g, "");
                 if (clean.length > 10) clean = clean.substring(0, 10);
-                $(this).val(clean);
-            });
-        }
+                $phoneInput.val(clean);
 
-        // Live mask on ID Proof input
-        let apply_id_mask = () => {
-            let idType = d.get_value("id_proof_type");
-            let $idInput = d.fields_dict.id_proof_number ? d.fields_dict.id_proof_number.$input : null;
-            if (!$idInput) return;
-
-            if (idType === "Aadhaar") {
-                $idInput.attr("maxlength", "12");
-                $idInput.attr("placeholder", "12-digit Aadhaar Number");
-                let clean = $idInput.val().replace(/\D/g, "");
-                if (clean.length > 12) clean = clean.substring(0, 12);
-                $idInput.val(clean);
-            } else if (idType === "PAN") {
-                $idInput.attr("maxlength", "10");
-                $idInput.attr("placeholder", "10-character PAN (e.g. ABCDE1234F)");
-                let clean = $idInput.val().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-                if (clean.length > 10) clean = clean.substring(0, 10);
-                $idInput.val(clean);
-            } else {
-                $idInput.attr("maxlength", "20");
-                $idInput.attr("placeholder", "ID Number");
-            }
-        };
-
-        if (d.fields_dict.id_proof_number && d.fields_dict.id_proof_number.$input) {
-            d.fields_dict.id_proof_number.$input.on("input", function() {
-                let idType = d.get_value("id_proof_type");
-                if (idType === "Aadhaar") {
-                    let clean = $(this).val().replace(/\D/g, "");
-                    if (clean.length > 12) clean = clean.substring(0, 12);
-                    $(this).val(clean);
-                } else if (idType === "PAN") {
-                    let clean = $(this).val().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-                    if (clean.length > 10) clean = clean.substring(0, 10);
-                    $(this).val(clean);
+                if (!clean) {
+                    $phoneFeedback.html("");
+                } else if (clean.length === 10) {
+                    let res = validate_mobile_js(clean);
+                    if (res.valid) {
+                        $phoneFeedback.html(`<span style="color: #059669; font-weight: 600;">✓ Valid 10-Digit Mobile Number</span>`);
+                    } else {
+                        $phoneFeedback.html(`<span style="color: #dc2626; font-weight: 600;">✗ ${res.message}</span>`);
+                    }
+                } else {
+                    $phoneFeedback.html(`<span style="color: #64748b;">10-digit Indian Mobile (${clean.length}/10)</span>`);
                 }
-            });
+            };
+
+            $phoneInput.on("input", check_phone_live);
         }
 
-        if (d.fields_dict.id_proof_type && d.fields_dict.id_proof_type.$input) {
-            d.fields_dict.id_proof_type.$input.on("change", apply_id_mask);
+        // 2. Live feedback & mask on ID Proof input (UIDAI Verhoeff Checksum & Income Tax PAN)
+        if (d.fields_dict.id_proof_number && d.fields_dict.id_proof_number.$input) {
+            let $idInput = d.fields_dict.id_proof_number.$input;
+            let $idFeedback = $(`<div class="live-id-feedback" style="font-size: 11px; margin-top: 4px; font-weight: 500;"></div>`);
+            $idInput.after($idFeedback);
+
+            let apply_id_mask = () => {
+                let idType = d.get_value("id_proof_type");
+                let val = $idInput.val() || "";
+
+                if (idType === "Aadhaar") {
+                    $idInput.attr("maxlength", "12");
+                    $idInput.attr("placeholder", "12-digit Aadhaar Number");
+                    let clean = val.replace(/\D/g, "");
+                    if (clean.length > 12) clean = clean.substring(0, 12);
+                    $idInput.val(clean);
+
+                    if (!clean) {
+                        $idFeedback.html(`<span style="color: #64748b;">UIDAI Verhoeff Checksum will validate automatically on 12 digits</span>`);
+                    } else if (clean.length === 12) {
+                        let res = validate_aadhaar_js(clean);
+                        if (res.valid) {
+                            $idFeedback.html(`<span style="color: #059669; font-weight: 600;">✓ UIDAI Checksum Verified (Valid Aadhaar)</span>`);
+                        } else {
+                            $idFeedback.html(`<span style="color: #dc2626; font-weight: 600;">✗ ${res.message}</span>`);
+                        }
+                    } else {
+                        $idFeedback.html(`<span style="color: #64748b;">Enter 12 digits (${clean.length}/12)</span>`);
+                    }
+                } else if (idType === "PAN") {
+                    $idInput.attr("maxlength", "10");
+                    $idInput.attr("placeholder", "10-character PAN (e.g. ABCDE1234F)");
+                    let clean = val.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                    if (clean.length > 10) clean = clean.substring(0, 10);
+                    $idInput.val(clean);
+
+                    if (!clean) {
+                        $idFeedback.html(`<span style="color: #64748b;">Income Tax 10-character PAN format</span>`);
+                    } else if (clean.length === 10) {
+                        let res = validate_pan_js(clean);
+                        if (res.valid) {
+                            $idFeedback.html(`<span style="color: #059669; font-weight: 600;">✓ Income Tax PAN Verified</span>`);
+                        } else {
+                            $idFeedback.html(`<span style="color: #dc2626; font-weight: 600;">✗ ${res.message}</span>`);
+                        }
+                    } else {
+                        $idFeedback.html(`<span style="color: #64748b;">Enter 10 characters (${clean.length}/10)</span>`);
+                    }
+                } else {
+                    $idInput.attr("maxlength", "20");
+                    $idInput.attr("placeholder", "ID Number");
+                    $idFeedback.html("");
+                }
+            };
+
+            $idInput.on("input", apply_id_mask);
+            if (d.fields_dict.id_proof_type && d.fields_dict.id_proof_type.$input) {
+                d.fields_dict.id_proof_type.$input.on("change", () => {
+                    $idInput.val("");
+                    apply_id_mask();
+                });
+            }
+            apply_id_mask();
         }
-        apply_id_mask();
     }
 
     // ----------------------------------------------------------------------
@@ -1042,17 +1166,13 @@ class HotelDashboard {
                     return false;
                 }
 
-                // Validation: Mobile Number (strictly 10 digits)
-                let rawPhone = (vals.phone || "").trim();
-                let cleanPhone = rawPhone.replace(/\D/g, "");
-                if (cleanPhone.length === 12 && cleanPhone.startsWith("91")) cleanPhone = cleanPhone.substring(2);
-                if (cleanPhone.length === 11 && cleanPhone.startsWith("0")) cleanPhone = cleanPhone.substring(1);
-
-                if (!rawPhone || cleanPhone.length !== 10) {
-                    frappe.msgprint(__("Mobile Number must be exactly 10 digits (e.g. 9876543210)."));
+                // Validation: Mobile Number (strictly 10 digits starting with 6-9 as per TRAI)
+                let mobileRes = validate_mobile_js(vals.phone);
+                if (!mobileRes.valid) {
+                    frappe.msgprint(mobileRes.message);
                     return false;
                 }
-                vals.phone = cleanPhone;
+                vals.phone = mobileRes.clean;
 
                 // Validation: Email (if entered)
                 if (vals.email && vals.email.trim()) {
@@ -1105,16 +1225,35 @@ class HotelDashboard {
 
         d.show();
 
-        // Live mask on Phone input: max 10 digits, only numbers
+        // Live mask and real-time feedback on Phone input: max 10 digits, only numbers starting with 6-9
         if (d.fields_dict.phone && d.fields_dict.phone.$input) {
             let $phoneInput = d.fields_dict.phone.$input;
             $phoneInput.attr("maxlength", "10");
             $phoneInput.attr("type", "tel");
-            $phoneInput.on("input", function() {
-                let clean = $(this).val().replace(/\D/g, "");
+
+            let $phoneFeedback = $(`<div class="live-res-phone-feedback" style="font-size: 11px; margin-top: 4px; font-weight: 500;"></div>`);
+            $phoneInput.after($phoneFeedback);
+
+            let check_phone_live = () => {
+                let clean = $phoneInput.val().replace(/\D/g, "");
                 if (clean.length > 10) clean = clean.substring(0, 10);
-                $(this).val(clean);
-            });
+                $phoneInput.val(clean);
+
+                if (!clean) {
+                    $phoneFeedback.html("");
+                } else if (clean.length === 10) {
+                    let res = validate_mobile_js(clean);
+                    if (res.valid) {
+                        $phoneFeedback.html(`<span style="color: #059669; font-weight: 600;">✓ Valid 10-Digit Mobile Number</span>`);
+                    } else {
+                        $phoneFeedback.html(`<span style="color: #dc2626; font-weight: 600;">✗ ${res.message}</span>`);
+                    }
+                } else {
+                    $phoneFeedback.html(`<span style="color: #64748b;">10-digit Indian Mobile (${clean.length}/10)</span>`);
+                }
+            };
+
+            $phoneInput.on("input", check_phone_live);
         }
     }
 

@@ -308,8 +308,16 @@ def create_hotel_payment_entry(company, customer, amount, mode_of_payment=None, 
     return pe
 
 # ==============================================================================
-# Input & Master Data Validation Helpers
+# Input & Master Data Validation Helpers (Using Official UIDAI & TRAI Standards)
 # ==============================================================================
+from hotel_pms.hotel_pms.utils.id_validator import (
+    validate_mobile_number,
+    validate_kyc_document,
+    validate_aadhaar,
+    validate_pan,
+    validate_verhoeff
+)
+
 def validate_guest_name(name):
     if not name or not str(name).strip():
         frappe.throw(_("Guest Full Name is mandatory."))
@@ -319,20 +327,7 @@ def validate_guest_name(name):
     return name_clean
 
 def validate_phone_number(phone, mandatory=False):
-    if not phone or not str(phone).strip():
-        if mandatory:
-            frappe.throw(_("Guest Mobile Number is mandatory."))
-        return ""
-    clean = re.sub(r"\D", "", str(phone).strip())
-    # Strip country code 91 or leading 0 if entered
-    if len(clean) == 12 and clean.startswith("91"):
-        clean = clean[2:]
-    elif len(clean) == 11 and clean.startswith("0"):
-        clean = clean[1:]
-
-    if len(clean) != 10:
-        frappe.throw(_("Invalid Mobile Number '{0}'. Mobile number must be exactly 10 digits (e.g. 9876543210).").format(phone))
-    return clean
+    return validate_mobile_number(phone, mandatory=mandatory)
 
 def validate_email_address_str(email, mandatory=False):
     if not email or not str(email).strip():
@@ -348,30 +343,7 @@ def validate_email_address_str(email, mandatory=False):
     return email_clean
 
 def validate_id_proof(id_type, id_number):
-    if not id_type and not id_number:
-        return
-    if id_type and not id_number:
-        frappe.throw(_("ID Proof Number is required when ID Proof Type is selected."))
-    if id_number and not id_type:
-        frappe.throw(_("Please select ID Proof Type for the entered ID Number."))
-
-    clean_num = str(id_number).strip().replace(" ", "").replace("-", "").upper()
-    if id_type == "Aadhaar":
-        clean_digits = re.sub(r"\D", "", clean_num)
-        if len(clean_digits) != 12:
-            frappe.throw(_("Invalid Aadhaar Number '{0}'. Aadhaar must contain exactly 12 digits.").format(id_number))
-    elif id_type == "PAN":
-        if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", clean_num):
-            frappe.throw(_("Invalid PAN Card format '{0}'. PAN must be exactly 10 characters (e.g. ABCDE1234F).").format(id_number))
-    elif id_type == "Passport":
-        if len(clean_num) < 6 or len(clean_num) > 15 or not clean_num.isalnum():
-            frappe.throw(_("Invalid Passport Number '{0}'.").format(id_number))
-    elif id_type == "Driving License":
-        if len(clean_num) < 8 or len(clean_num) > 20 or not clean_num.isalnum():
-            frappe.throw(_("Invalid Driving License Number '{0}'.").format(id_number))
-    elif id_type == "Voter ID":
-        if len(clean_num) < 8 or len(clean_num) > 16 or not clean_num.isalnum():
-            frappe.throw(_("Invalid Voter ID Number '{0}'.").format(id_number))
+    return validate_kyc_document(id_type, id_number)
 
 @frappe.whitelist()
 def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=None, checkin_date=None, expected_checkout_date=None, advance_amount=0, mode_of_payment=None, id_proof_type=None, id_proof_number=None):
