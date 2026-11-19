@@ -106,13 +106,31 @@ def get_dashboard_data(selected_date=None):
 
         is_cleaning_req = 1 if s.room in cleaning_requested_rooms else 0
 
+        # Room details lookup
+        r_num = s.room
+        r_floor = "G"
+        r_type = s.room_type
+        if s.room in room_map:
+            r_num = room_map[s.room].get("room_number") or s.room
+            r_floor = room_map[s.room].get("floor") or "G"
+            r_type = room_map[s.room].get("room_type") or s.room_type
+        else:
+            for r_val in room_map.values():
+                if str(r_val.get("room_number")) == str(s.room):
+                    r_num = r_val.get("room_number")
+                    r_floor = r_val.get("floor") or "G"
+                    r_type = r_val.get("room_type") or s.room_type
+                    break
+
         stay_info = {
             "stay": s.name,
             "guest": s.guest,
             "guest_name": s.guest_name,
             "guest_phone": phone or "N/A",
             "room": s.room,
-            "room_type": s.room_type,
+            "room_number": r_num,
+            "floor": r_floor,
+            "room_type": r_type,
             "folio": s.folio,
             "checkin_date": str(s.checkin_date),
             "expected_checkout": str(s.expected_checkout_date),
@@ -126,12 +144,23 @@ def get_dashboard_data(selected_date=None):
             "total_charges": tot_charges,
             "total_paid": tot_paid,
             "balance_due": folio_bal,
+            "folio_balance": folio_bal,
             "is_cleaning_requested": is_cleaning_req
         }
         inhouse_list.append(stay_info)
 
+        # Robust match in room_map by room name or room_number
+        target_room = None
         if s.room in room_map:
-            room_map[s.room].update({
+            target_room = room_map[s.room]
+        else:
+            for r_val in room_map.values():
+                if str(r_val.get("room_number")) == str(s.room):
+                    target_room = r_val
+                    break
+
+        if target_room:
+            target_room.update({
                 "guest_name": s.guest_name,
                 "guest_phone": phone or "N/A",
                 "stay_name": s.name,
@@ -248,6 +277,64 @@ def get_dashboard_data(selected_date=None):
         }
     }
 
+def create_hotel_payment_entry(company, customer, amount, mode_of_payment=None, hotel_stay=None, hotel_reservation=None, hotel_folio=None, reference_no=None):
+    """Safely create and submit an ERPNext Payment Entry without lifecycle attribute errors"""
+    pe = frappe.new_doc("Payment Entry")
+    pe.payment_type = "Receive"
+    pe.party_type = "Customer"
+    pe.party = customer
+    pe.company = company
+    pe.paid_amount = flt(amount)
+    pe.received_amount = flt(amount)
+
+    if hotel_stay:
+        pe.hotel_stay = hotel_stay
+    if hotel_reservation:
+        pe.hotel_reservation = hotel_reservation
+    if hotel_folio:
+        pe.hotel_folio = hotel_folio
+    if mode_of_payment:
+        pe.mode_of_payment = mode_of_payment
+    if reference_no:
+        pe.reference_no = reference_no
+        pe.reference_date = today()
+
+    # 1. Resolve customer receivable account (paid_from)
+    try:
+        from erpnext.accounts.party import get_party_account
+        party_account = get_party_account("Customer", customer, company)
+        if party_account:
+            pe.paid_from = party_account
+    except Exception:
+        pass
+
+    # 2. Resolve Bank / Cash account from Mode of Payment or Company defaults (paid_to)
+    if mode_of_payment:
+        try:
+            from erpnext.accounts.doctype.sales_invoice.sales_invoice import get_bank_cash_account
+            bank_acc = get_bank_cash_account(mode_of_payment, company)
+            if bank_acc and bank_acc.get("account"):
+                pe.paid_to = bank_acc.get("account")
+        except Exception:
+            pass
+
+    if not getattr(pe, "paid_to", None):
+        pe.paid_to = frappe.db.get_value("Company", company, "default_cash_account") or frappe.db.get_value("Company", company, "default_bank_account")
+
+    # 3. Setup lifecycle fields in proper sequence before set_missing_values
+    if hasattr(pe, "setup_party_account_field"):
+        pe.setup_party_account_field()
+
+    if hasattr(pe, "set_missing_values"):
+        try:
+            pe.set_missing_values()
+        except Exception:
+            pass
+
+    pe.insert(ignore_permissions=True)
+    pe.submit()
+    return pe
+
 @frappe.whitelist()
 def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=None, checkin_date=None, expected_checkout_date=None, advance_amount=0, mode_of_payment=None, id_proof_type=None, id_proof_number=None):
     """Direct 1-click Walk-In Check-In from the dashboard"""
@@ -318,20 +405,15 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
     adv = flt(advance_amount)
     if adv > 0:
         try:
-            pe = frappe.new_doc("Payment Entry")
-            pe.payment_type = "Receive"
-            pe.party_type = "Customer"
-            pe.party = customer
-            pe.company = company
-            pe.paid_amount = adv
-            pe.received_amount = adv
-            pe.hotel_stay = stay.name
-            if mode_of_payment:
-                pe.mode_of_payment = mode_of_payment
-            pe.set_missing_values()
-            pe.insert(ignore_permissions=True)
-            pe.submit()
-
+            create_hotel_payment_entry(
+                company=company,
+                customer=customer,
+                amount=adv,
+                mode_of_payment=mode_of_payment,
+                hotel_stay=stay.name,
+                hotel_folio=stay.folio,
+                reference_no="Advance at Check-In"
+            )
             # Refresh folio payment fetch
             if stay.folio:
                 folio_doc = frappe.get_doc("Guest Folio", stay.folio)
@@ -396,20 +478,14 @@ def quick_create_reservation(guest_name, arrival_date, departure_date, room_type
     adv = flt(advance_amount)
     if adv > 0:
         try:
-            pe = frappe.new_doc("Payment Entry")
-            pe.payment_type = "Receive"
-            pe.party_type = "Customer"
-            pe.party = customer
-            pe.company = company
-            pe.paid_amount = adv
-            pe.received_amount = adv
-            pe.hotel_reservation = res.name
-            if mode_of_payment:
-                pe.mode_of_payment = mode_of_payment
-            pe.set_missing_values()
-            pe.insert(ignore_permissions=True)
-            pe.submit()
-
+            create_hotel_payment_entry(
+                company=company,
+                customer=customer,
+                amount=adv,
+                mode_of_payment=mode_of_payment,
+                hotel_reservation=res.name,
+                reference_no="Advance for Reservation"
+            )
             res.db_set("advance_paid", adv)
             res.db_set("payment_status", "Partially Paid" if adv < res.estimated_total else "Fully Paid")
         except Exception as e:
@@ -481,25 +557,15 @@ def collect_stay_payment(stay=None, folio=None, amount=0, mode_of_payment=None, 
     settings = frappe.get_single("Hotel Settings")
     company = stay_doc.company or settings.company or frappe.defaults.get_user_default("Company")
 
-    pe = frappe.new_doc("Payment Entry")
-    pe.payment_type = "Receive"
-    pe.party_type = "Customer"
-    pe.party = stay_doc.guest
-    pe.company = company
-    pe.paid_amount = pay_amount
-    pe.received_amount = pay_amount
-    pe.hotel_stay = stay_doc.name
-    if stay_doc.folio:
-        pe.hotel_folio = stay_doc.folio
-    if mode_of_payment:
-        pe.mode_of_payment = mode_of_payment
-    if reference_no:
-        pe.reference_no = reference_no
-        pe.reference_date = today()
-
-    pe.set_missing_values()
-    pe.insert(ignore_permissions=True)
-    pe.submit()
+    pe = create_hotel_payment_entry(
+        company=company,
+        customer=stay_doc.guest,
+        amount=pay_amount,
+        mode_of_payment=mode_of_payment,
+        hotel_stay=stay_doc.name,
+        hotel_folio=stay_doc.folio,
+        reference_no=reference_no or "Stay Payment"
+    )
 
     # Recalculate Folio
     balance_left = 0.0

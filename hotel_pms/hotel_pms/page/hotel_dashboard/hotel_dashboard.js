@@ -146,9 +146,9 @@ class HotelDashboard {
 
         // Room Card Click
         this.$wrapper.on("click", ".room-card", (e) => {
-            let room = $(e.currentTarget).data("room");
-            let status = $(e.currentTarget).data("status");
-            let stay = $(e.currentTarget).data("stay");
+            let room = String($(e.currentTarget).attr("data-room") || "").trim();
+            let status = String($(e.currentTarget).attr("data-status") || "").trim();
+            let stay = String($(e.currentTarget).attr("data-stay") || "").trim();
 
             if (status === "Vacant Clean") {
                 this.open_walkin_checkin_dialog(room);
@@ -166,9 +166,9 @@ class HotelDashboard {
         // Stop propagation for action buttons inside room cards
         this.$wrapper.on("click", ".card-btn", (e) => {
             e.stopPropagation();
-            let action = $(e.currentTarget).data("action");
-            let room = $(e.currentTarget).data("room");
-            let stay = $(e.currentTarget).data("stay");
+            let action = String($(e.currentTarget).attr("data-action") || "").trim();
+            let room = String($(e.currentTarget).attr("data-room") || "").trim();
+            let stay = String($(e.currentTarget).attr("data-stay") || "").trim();
 
             if (action === "checkin") {
                 this.open_walkin_checkin_dialog(room);
@@ -471,47 +471,95 @@ class HotelDashboard {
     // Modal: In-House Guest Management & Living Experience
     // ----------------------------------------------------------------------
     open_inhouse_dialog(room, stay) {
-        let r_info = (this.data.rooms || []).find(x => x.room === room) || {};
+        room = String(room || "").trim();
+        stay = String(stay || "").trim();
+
+        // 1. Find from rooms array
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === room || 
+            String(x.room_number).trim() === room ||
+            (stay && String(x.stay_name).trim() === stay)
+        ) || {};
+
+        // 2. Also match from inhouse array
+        let inhouse_info = (this.data.inhouse || []).find(x => 
+            (stay && String(x.stay).trim() === stay) || 
+            String(x.room).trim() === room ||
+            String(x.room_number).trim() === room
+        );
+
+        if (inhouse_info) {
+            r_info = Object.assign({}, inhouse_info, r_info);
+            if (!r_info.guest_name && inhouse_info.guest_name) r_info.guest_name = inhouse_info.guest_name;
+            if (!r_info.guest_phone && inhouse_info.guest_phone) r_info.guest_phone = inhouse_info.guest_phone;
+            if (!r_info.room_number && inhouse_info.room_number) r_info.room_number = inhouse_info.room_number;
+            if (!r_info.room_type && inhouse_info.room_type) r_info.room_type = inhouse_info.room_type;
+            if (!r_info.floor && inhouse_info.floor) r_info.floor = inhouse_info.floor;
+            if (!r_info.checkin_date && inhouse_info.checkin_date) r_info.checkin_date = inhouse_info.checkin_date;
+            if (!r_info.expected_checkout && inhouse_info.expected_checkout) r_info.expected_checkout = inhouse_info.expected_checkout;
+            if (r_info.total_charges === undefined || r_info.total_charges === 0) r_info.total_charges = inhouse_info.total_charges;
+            if (r_info.total_paid === undefined || r_info.total_paid === 0) r_info.total_paid = inhouse_info.total_paid;
+            if (r_info.folio_balance === undefined) r_info.folio_balance = inhouse_info.balance_due !== undefined ? inhouse_info.balance_due : inhouse_info.folio_balance;
+            if (!r_info.departure_status && inhouse_info.departure_status) r_info.departure_status = inhouse_info.departure_status;
+        }
+
+        let display_room_no = r_info.room_number || room || "N/A";
+        let display_guest_name = r_info.guest_name || "In-House Guest";
+        let display_phone = r_info.guest_phone || "N/A";
+        let display_stay = stay || r_info.stay_name || r_info.stay || "N/A";
+        let display_room_type = r_info.room_type || "Standard Room";
+        let display_floor = r_info.floor || "G";
+        let display_cin = r_info.checkin_date || "N/A";
+        let display_cout = r_info.expected_checkout || "N/A";
+        let display_status = r_info.departure_status || "Active";
+        let display_charges = flt(r_info.total_charges || 0);
+        let display_paid = flt(r_info.total_paid || 0);
+        let display_balance = flt(r_info.folio_balance !== undefined ? r_info.folio_balance : (r_info.balance_due !== undefined ? r_info.balance_due : (display_charges - display_paid)));
+
         let currency = frappe.defaults.get_default("currency") || "₹";
 
         let d = new frappe.ui.Dialog({
-            title: __("Room {0} · In-House Guest", [room]),
+            title: __("Room {0} · In-House Guest", [display_room_no]),
             fields: [
                 {
                     fieldtype: "HTML",
                     options: `
-                        <div class="inhouse-modal-header">
+                        <div class="inhouse-modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff !important; padding: 18px 20px; border-radius: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 14px rgba(15,23,42,0.18);">
                             <div class="inhouse-header-guest">
-                                <h3>👤 ${frappe.utils.escape_html(r_info.guest_name || 'In-House Guest')}</h3>
-                                <p>📱 ${r_info.guest_phone || 'N/A'} · Stay #${stay}</p>
+                                <h3 style="color: #ffffff !important; font-size: 19px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 22px;">👤</span> ${frappe.utils.escape_html(display_guest_name)}
+                                </h3>
+                                <p style="color: #cbd5e1 !important; font-size: 13px; margin: 6px 0 0 0; font-weight: 500;">
+                                    📱 ${frappe.utils.escape_html(display_phone)} · Stay #${frappe.utils.escape_html(display_stay)}
+                                </p>
                             </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 20px; font-weight: 800;">Room ${r_info.room_number}</div>
-                                <div style="font-size: 12px; opacity: 0.9;">${r_info.room_type} (Floor ${r_info.floor})</div>
+                            <div style="text-align: right; color: #ffffff !important;">
+                                <div style="font-size: 22px; font-weight: 800; color: #38bdf8 !important; letter-spacing: -0.5px;">Room ${frappe.utils.escape_html(display_room_no)}</div>
+                                <div style="font-size: 12.5px; color: #cbd5e1 !important; font-weight: 500; margin-top: 3px;">${frappe.utils.escape_html(display_room_type)} (Floor ${frappe.utils.escape_html(display_floor)})</div>
                             </div>
                         </div>
 
                         <div class="financial-summary-card">
                             <div class="financial-row">
-                                <span class="text-muted">Check-In Date:</span>
-                                <strong>${r_info.checkin_date || 'N/A'}</strong>
+                                <span class="text-muted">${__("Check-In Date")}:</span>
+                                <strong>${display_cin}</strong>
                             </div>
                             <div class="financial-row">
-                                <span class="text-muted">Expected Checkout:</span>
-                                <strong>${r_info.expected_checkout || 'N/A'} (${r_info.departure_status || 'Active'})</strong>
+                                <span class="text-muted">${__("Expected Checkout")}:</span>
+                                <strong>${display_cout} (${display_status})</strong>
                             </div>
                             <div class="financial-row" style="margin-top: 6px;">
-                                <span class="text-muted">Total Billed Charges:</span>
-                                <span>${format_currency(r_info.total_charges || 0, currency)}</span>
+                                <span class="text-muted">${__("Total Billed Charges")}:</span>
+                                <span>${format_currency(display_charges, currency)}</span>
                             </div>
                             <div class="financial-row">
-                                <span class="text-muted">Total Paid / Advance:</span>
-                                <span class="text-success font-bold">${format_currency(r_info.total_paid || 0, currency)}</span>
+                                <span class="text-muted">${__("Total Paid / Advance")}:</span>
+                                <span class="text-success font-bold">${format_currency(display_paid, currency)}</span>
                             </div>
                             <div class="financial-balance-banner">
-                                <span>Net Outstanding Due:</span>
-                                <span class="${r_info.folio_balance > 0 ? 'text-danger' : 'text-success'}">
-                                    ${format_currency(r_info.folio_balance || 0, currency)}
+                                <span>${__("Net Outstanding Due")}:</span>
+                                <span class="${display_balance > 0 ? 'text-danger' : 'text-success'}">
+                                    ${format_currency(display_balance, currency)}
                                 </span>
                             </div>
                         </div>
@@ -548,27 +596,27 @@ class HotelDashboard {
         // Bind In-House Modal Actions
         d.$wrapper.on("click", "#btn-modal-add-charge", () => {
             d.hide();
-            this.open_add_charge_dialog(stay, room);
+            this.open_add_charge_dialog(display_stay, display_room_no);
         });
 
         d.$wrapper.on("click", "#btn-modal-collect-pay", () => {
             d.hide();
-            this.open_collect_payment_dialog(stay, room, r_info.folio_balance);
+            this.open_collect_payment_dialog(display_stay, display_room_no, display_balance);
         });
 
         d.$wrapper.on("click", "#btn-modal-request-clean", () => {
             d.hide();
-            this.request_cleaning(room, stay);
+            this.request_cleaning(display_room_no, display_stay);
         });
 
         d.$wrapper.on("click", "#btn-modal-move-room", () => {
             d.hide();
-            this.open_room_change_dialog(stay, room);
+            this.open_room_change_dialog(display_stay, display_room_no);
         });
 
         d.$wrapper.on("click", "#btn-modal-checkout", () => {
             d.hide();
-            this.open_checkout_dialog(stay, room, r_info.folio_balance);
+            this.open_checkout_dialog(display_stay, display_room_no, display_balance);
         });
     }
 
@@ -576,12 +624,29 @@ class HotelDashboard {
     // Modal: Add Extra Service Charge (Food, Laundry, etc.)
     // ----------------------------------------------------------------------
     open_add_charge_dialog(stay, room) {
+        room = String(room || "").trim();
+        stay = String(stay || "").trim();
+
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === room || 
+            String(x.room_number).trim() === room ||
+            (stay && String(x.stay_name).trim() === stay)
+        ) || {};
+
+        let inhouse_info = (this.data.inhouse || []).find(x => 
+            (stay && String(x.stay).trim() === stay) || 
+            String(x.room).trim() === room
+        );
+
+        stay = stay || r_info.stay_name || (inhouse_info ? inhouse_info.stay : "");
+        let display_room = r_info.room_number || room || (inhouse_info ? inhouse_info.room_number : "");
+
         let charge_types = (this.data.masters && this.data.masters.charge_types) || [
             "Restaurant / F&B", "Laundry", "Room Service", "Minibar", "Extra Bed", "Other"
         ];
 
         let d = new frappe.ui.Dialog({
-            title: __("➕ Add Extra Charge · Room {0}", [room]),
+            title: __("➕ Add Extra Charge · Room {0}", [display_room]),
             fields: [
                 {
                     label: __("Charge Type"),
@@ -639,16 +704,35 @@ class HotelDashboard {
     // Modal: Collect Payment
     // ----------------------------------------------------------------------
     open_collect_payment_dialog(stay, room, current_balance) {
+        room = String(room || "").trim();
+        stay = String(stay || "").trim();
+
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === room || 
+            String(x.room_number).trim() === room ||
+            (stay && String(x.stay_name).trim() === stay)
+        ) || {};
+
+        let inhouse_info = (this.data.inhouse || []).find(x => 
+            (stay && String(x.stay).trim() === stay) || 
+            String(x.room).trim() === room
+        );
+
+        stay = stay || r_info.stay_name || (inhouse_info ? inhouse_info.stay : "");
+        let display_room = r_info.room_number || room || (inhouse_info ? inhouse_info.room_number : "");
+        let bal = current_balance !== undefined ? current_balance : (r_info.folio_balance !== undefined ? r_info.folio_balance : (inhouse_info ? inhouse_info.balance_due : 0));
+        bal = flt(bal);
+
         let payment_modes = (this.data.masters && this.data.masters.payment_modes) || ["Cash", "Bank", "UPI", "Credit Card"];
 
         let d = new frappe.ui.Dialog({
-            title: __("💵 Collect Guest Payment · Room {0}", [room]),
+            title: __("💵 Collect Guest Payment · Room {0}", [display_room]),
             fields: [
                 {
                     label: __("Payment Amount (₹)"),
                     fieldname: "amount",
                     fieldtype: "Currency",
-                    default: current_balance > 0 ? current_balance : 0,
+                    default: bal > 0 ? bal : 0,
                     reqd: 1
                 },
                 {
@@ -807,12 +891,29 @@ class HotelDashboard {
     // Modal: 1-Click Checkout with Auto-Settlement
     // ----------------------------------------------------------------------
     open_checkout_dialog(stay, room, balance) {
-        let r_info = (this.data.rooms || []).find(x => x.room === room) || {};
-        let rem_balance = balance !== undefined ? balance : (r_info.folio_balance || 0);
+        room = String(room || "").trim();
+        stay = String(stay || "").trim();
+
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === room || 
+            String(x.room_number).trim() === room ||
+            (stay && String(x.stay_name).trim() === stay)
+        ) || {};
+
+        let inhouse_info = (this.data.inhouse || []).find(x => 
+            (stay && String(x.stay).trim() === stay) || 
+            String(x.room).trim() === room
+        );
+
+        stay = stay || r_info.stay_name || (inhouse_info ? inhouse_info.stay : "");
+        let display_room = r_info.room_number || room || (inhouse_info ? inhouse_info.room_number : "");
+        let rem_balance = balance !== undefined ? balance : (r_info.folio_balance !== undefined ? r_info.folio_balance : (inhouse_info ? inhouse_info.balance_due : 0));
+        rem_balance = flt(rem_balance);
+
         let payment_modes = (this.data.masters && this.data.masters.payment_modes) || ["Cash", "Bank", "UPI", "Credit Card"];
 
         if (rem_balance <= 0) {
-            frappe.confirm(__("Folio is settled. Proceed to check out Stay #{0} for Room {1}?", [stay, room]), () => {
+            frappe.confirm(__("Folio is settled. Proceed to check out Stay #{0} for Room {1}?", [stay, display_room]), () => {
                 frappe.call({
                     method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.instant_checkout",
                     args: { stay: stay },
@@ -820,7 +921,7 @@ class HotelDashboard {
                     freeze_message: __("Processing checkout & generating Sales Invoice..."),
                     callback: (r) => {
                         frappe.show_alert({
-                            message: __("Room {0} checked out! Sales Invoice created.", [room]),
+                            message: __("Room {0} checked out! Sales Invoice created.", [display_room]),
                             indicator: "green"
                         });
                         this.load_data();
@@ -830,7 +931,7 @@ class HotelDashboard {
         } else {
             // Balance remains: offer 1-click settlement & checkout
             let d = new frappe.ui.Dialog({
-                title: __("🚪 Checkout & Settle Due Balance · Room {0}", [room]),
+                title: __("🚪 Checkout & Settle Due Balance · Room {0}", [display_room]),
                 fields: [
                     {
                         fieldtype: "HTML",
@@ -871,7 +972,7 @@ class HotelDashboard {
                         callback: (r) => {
                             d.hide();
                             frappe.show_alert({
-                                message: __("Checkout completed! Invoice generated & Room {0} marked for cleaning.", [room]),
+                                message: __("Checkout completed! Invoice generated & Room {0} marked for cleaning.", [display_room]),
                                 indicator: "green"
                             });
                             this.load_data();
@@ -887,11 +988,28 @@ class HotelDashboard {
     // Modal: Mid-Stay Room Move
     // ----------------------------------------------------------------------
     open_room_change_dialog(stay, current_room) {
+        current_room = String(current_room || "").trim();
+        stay = String(stay || "").trim();
+
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === current_room || 
+            String(x.room_number).trim() === current_room ||
+            (stay && String(x.stay_name).trim() === stay)
+        ) || {};
+
+        let inhouse_info = (this.data.inhouse || []).find(x => 
+            (stay && String(x.stay).trim() === stay) || 
+            String(x.room).trim() === current_room
+        );
+
+        stay = stay || r_info.stay_name || (inhouse_info ? inhouse_info.stay : "");
+        let display_room = r_info.room_number || current_room || (inhouse_info ? inhouse_info.room_number : "");
+
         let clean_rooms = (this.data.masters && this.data.masters.clean_rooms) || [];
-        let room_options = clean_rooms.filter(x => x.room !== current_room).map(x => ({ label: `Room ${x.room_number} (${x.room_type})`, value: x.room }));
+        let room_options = clean_rooms.filter(x => String(x.room) !== String(current_room) && String(x.room_number) !== String(display_room)).map(x => ({ label: `Room ${x.room_number} (${x.room_type})`, value: x.room }));
 
         let d = new frappe.ui.Dialog({
-            title: __("🔄 Move Guest from Room {0}", [current_room]),
+            title: __("🔄 Move Guest from Room {0}", [display_room]),
             fields: [
                 {
                     label: __("Target Clean Room"),
@@ -936,9 +1054,18 @@ class HotelDashboard {
     // Request Daily Cleaning
     // ----------------------------------------------------------------------
     request_cleaning(room, stay) {
+        room = String(room || "").trim();
+        stay = String(stay || "").trim();
+
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === room || 
+            String(x.room_number).trim() === room
+        ) || {};
+        let target_room = r_info.room || room;
+
         frappe.call({
             method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.request_daily_cleaning",
-            args: { room: room, stay: stay },
+            args: { room: target_room, stay: stay },
             freeze: true,
             callback: (r) => {
                 if (r.message && r.message.status === "success") {
@@ -958,9 +1085,17 @@ class HotelDashboard {
     // Mark Clean Helper
     // ----------------------------------------------------------------------
     mark_clean(room) {
+        room = String(room || "").trim();
+
+        let r_info = (this.data.rooms || []).find(x => 
+            String(x.room).trim() === room || 
+            String(x.room_number).trim() === room
+        ) || {};
+        let target_room = r_info.room || room;
+
         frappe.call({
             method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.mark_room_clean",
-            args: { room: room },
+            args: { room: target_room },
             freeze: true,
             callback: (r) => {
                 frappe.show_alert({
@@ -1139,9 +1274,9 @@ class HotelDashboard {
         this.$wrapper.find("#pane-departures").html(html);
 
         this.$wrapper.find(".btn-departure-checkout").on("click", (e) => {
-            let stay = $(e.currentTarget).data("stay");
-            let room = $(e.currentTarget).data("room");
-            let bal = flt($(e.currentTarget).data("balance"));
+            let stay = String($(e.currentTarget).attr("data-stay") || "").trim();
+            let room = String($(e.currentTarget).attr("data-room") || "").trim();
+            let bal = flt($(e.currentTarget).attr("data-balance"));
             this.open_checkout_dialog(stay, room, bal);
         });
     }
@@ -1205,22 +1340,22 @@ class HotelDashboard {
         this.$wrapper.find("#pane-inhouse").html(html);
 
         this.$wrapper.find(".btn-row-charge").on("click", (e) => {
-            let stay = $(e.currentTarget).data("stay");
-            let room = $(e.currentTarget).data("room");
+            let stay = String($(e.currentTarget).attr("data-stay") || "").trim();
+            let room = String($(e.currentTarget).attr("data-room") || "").trim();
             this.open_add_charge_dialog(stay, room);
         });
 
         this.$wrapper.find(".btn-row-pay").on("click", (e) => {
-            let stay = $(e.currentTarget).data("stay");
-            let room = $(e.currentTarget).data("room");
-            let bal = flt($(e.currentTarget).data("balance"));
+            let stay = String($(e.currentTarget).attr("data-stay") || "").trim();
+            let room = String($(e.currentTarget).attr("data-room") || "").trim();
+            let bal = flt($(e.currentTarget).attr("data-balance"));
             this.open_collect_payment_dialog(stay, room, bal);
         });
 
         this.$wrapper.find(".btn-row-checkout").on("click", (e) => {
-            let stay = $(e.currentTarget).data("stay");
-            let room = $(e.currentTarget).data("room");
-            let bal = flt($(e.currentTarget).data("balance"));
+            let stay = String($(e.currentTarget).attr("data-stay") || "").trim();
+            let room = String($(e.currentTarget).attr("data-room") || "").trim();
+            let bal = flt($(e.currentTarget).attr("data-balance"));
             this.open_checkout_dialog(stay, room, bal);
         });
     }

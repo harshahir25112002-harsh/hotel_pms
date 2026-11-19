@@ -514,24 +514,39 @@
    In-House Guest Management Modal Styling
    -------------------------------------------------------------------------- */
 .inhouse-modal-header {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    color: #ffffff;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #ffffff !important;
     padding: 18px 20px;
-    border-radius: 10px;
+    border-radius: 12px;
     margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+}
+.inhouse-modal-header,
+.inhouse-modal-header *,
+.inhouse-modal-header h3,
+.inhouse-modal-header p,
+.inhouse-modal-header div,
+.inhouse-modal-header span {
+    color: #ffffff !important;
 }
 .inhouse-header-guest h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 19px;
     font-weight: 800;
+    color: #ffffff !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .inhouse-header-guest p {
-    margin: 4px 0 0 0;
+    margin: 6px 0 0 0;
     font-size: 13px;
-    opacity: 0.85;
+    font-weight: 500;
+    color: #cbd5e1 !important;
+    opacity: 0.95;
 }
 
 .financial-summary-card {
