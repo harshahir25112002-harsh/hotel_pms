@@ -1,3 +1,4 @@
+import re
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, today, add_days, nowdate, now_datetime, date_diff
@@ -106,31 +107,13 @@ def get_dashboard_data(selected_date=None):
 
         is_cleaning_req = 1 if s.room in cleaning_requested_rooms else 0
 
-        # Room details lookup
-        r_num = s.room
-        r_floor = "G"
-        r_type = s.room_type
-        if s.room in room_map:
-            r_num = room_map[s.room].get("room_number") or s.room
-            r_floor = room_map[s.room].get("floor") or "G"
-            r_type = room_map[s.room].get("room_type") or s.room_type
-        else:
-            for r_val in room_map.values():
-                if str(r_val.get("room_number")) == str(s.room):
-                    r_num = r_val.get("room_number")
-                    r_floor = r_val.get("floor") or "G"
-                    r_type = r_val.get("room_type") or s.room_type
-                    break
-
         stay_info = {
             "stay": s.name,
             "guest": s.guest,
             "guest_name": s.guest_name,
             "guest_phone": phone or "N/A",
             "room": s.room,
-            "room_number": r_num,
-            "floor": r_floor,
-            "room_type": r_type,
+            "room_type": s.room_type,
             "folio": s.folio,
             "checkin_date": str(s.checkin_date),
             "expected_checkout": str(s.expected_checkout_date),
@@ -144,23 +127,12 @@ def get_dashboard_data(selected_date=None):
             "total_charges": tot_charges,
             "total_paid": tot_paid,
             "balance_due": folio_bal,
-            "folio_balance": folio_bal,
             "is_cleaning_requested": is_cleaning_req
         }
         inhouse_list.append(stay_info)
 
-        # Robust match in room_map by room name or room_number
-        target_room = None
         if s.room in room_map:
-            target_room = room_map[s.room]
-        else:
-            for r_val in room_map.values():
-                if str(r_val.get("room_number")) == str(s.room):
-                    target_room = r_val
-                    break
-
-        if target_room:
-            target_room.update({
+            room_map[s.room].update({
                 "guest_name": s.guest_name,
                 "guest_phone": phone or "N/A",
                 "stay_name": s.name,
@@ -335,11 +307,74 @@ def create_hotel_payment_entry(company, customer, amount, mode_of_payment=None, 
     pe.submit()
     return pe
 
+# ==============================================================================
+# Input & Master Data Validation Helpers
+# ==============================================================================
+def validate_guest_name(name):
+    if not name or not str(name).strip():
+        frappe.throw(_("Guest Full Name is mandatory."))
+    name_clean = str(name).strip()
+    if len(name_clean) < 2:
+        frappe.throw(_("Guest Name must be at least 2 characters."))
+    return name_clean
+
+def validate_phone_number(phone, mandatory=False):
+    if not phone or not str(phone).strip():
+        if mandatory:
+            frappe.throw(_("Guest Mobile Number is mandatory."))
+        return ""
+    clean = re.sub(r"[\s\-\(\)\.]", "", str(phone).strip())
+    digits = clean[1:] if clean.startswith("+") else clean
+    if not digits.isdigit() or len(digits) < 10 or len(digits) > 15:
+        frappe.throw(_("Invalid Mobile Number '{0}'. Mobile number must contain between 10 and 15 digits.").format(phone))
+    return clean
+
+def validate_email_address_str(email, mandatory=False):
+    if not email or not str(email).strip():
+        if mandatory:
+            frappe.throw(_("Email address is mandatory."))
+        return ""
+    email_clean = str(email).strip()
+    from frappe.utils import validate_email_address
+    try:
+        validate_email_address(email_clean, throw=True)
+    except Exception:
+        frappe.throw(_("Invalid Email Address '{0}'.").format(email))
+    return email_clean
+
+def validate_id_proof(id_type, id_number):
+    if not id_type and not id_number:
+        return
+    if id_type and not id_number:
+        frappe.throw(_("ID Proof Number is required when ID Proof Type is selected."))
+    if id_number and not id_type:
+        frappe.throw(_("Please select ID Proof Type for the entered ID Number."))
+
+    clean_num = str(id_number).strip().replace(" ", "").replace("-", "").upper()
+    if id_type == "Aadhaar":
+        if not clean_num.isdigit() or len(clean_num) != 12:
+            frappe.throw(_("Invalid Aadhaar Number '{0}'. Aadhaar must contain exactly 12 digits.").format(id_number))
+    elif id_type == "PAN":
+        if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", clean_num):
+            frappe.throw(_("Invalid PAN Card format '{0}'. PAN must be 10 characters (e.g. ABCDE1234F).").format(id_number))
+    elif id_type == "Passport":
+        if len(clean_num) < 6 or len(clean_num) > 15 or not clean_num.isalnum():
+            frappe.throw(_("Invalid Passport Number '{0}'.").format(id_number))
+    elif id_type == "Driving License":
+        if len(clean_num) < 8 or len(clean_num) > 20 or not clean_num.isalnum():
+            frappe.throw(_("Invalid Driving License Number '{0}'.").format(id_number))
+    elif id_type == "Voter ID":
+        if len(clean_num) < 8 or len(clean_num) > 16 or not clean_num.isalnum():
+            frappe.throw(_("Invalid Voter ID Number '{0}'.").format(id_number))
+
 @frappe.whitelist()
 def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=None, checkin_date=None, expected_checkout_date=None, advance_amount=0, mode_of_payment=None, id_proof_type=None, id_proof_number=None):
-    """Direct 1-click Walk-In Check-In from the dashboard"""
-    if not guest_name:
-        frappe.throw(_("Guest Name is mandatory."))
+    """Direct 1-click Walk-In Check-In from the dashboard with strict validations"""
+    customer_name = validate_guest_name(guest_name)
+    clean_phone = validate_phone_number(phone, mandatory=True)
+    clean_email = validate_email_address_str(email, mandatory=False)
+    validate_id_proof(id_proof_type, id_proof_number)
+
     if not room:
         frappe.throw(_("Room is mandatory."))
 
@@ -350,8 +385,24 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
     if room_data.status != "Vacant Clean":
         frappe.throw(_("Room {0} is currently '{1}'. Only 'Vacant Clean' rooms can be checked in.").format(room, room_data.status))
 
+    # Check for existing active stay collision on the room
+    active_stay = frappe.db.get_value("Hotel Stay", {"room": room, "status": "Active"}, "name")
+    if active_stay:
+        frappe.throw(_("Room {0} already has an Active stay ({1}). Please check out the existing stay first.").format(room, active_stay))
+
+    cin_date = checkin_date or today()
+    cout_date = expected_checkout_date or add_days(cin_date, 1)
+    if getdate(cout_date) < getdate(cin_date):
+        frappe.throw(_("Expected Checkout Date cannot be before Check-in Date."))
+
+    if room_rate is not None and flt(room_rate) <= 0:
+        frappe.throw(_("Daily Room Rate must be greater than zero."))
+
+    adv = flt(advance_amount)
+    if adv < 0:
+        frappe.throw(_("Advance Amount cannot be negative."))
+
     # 1. Resolve or Create Customer (Guest)
-    customer_name = guest_name.strip()
     customer = frappe.db.get_value("Customer", {"customer_name": customer_name}, "name")
     if not customer:
         cust_doc = frappe.new_doc("Customer")
@@ -360,16 +411,18 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
         cust_doc.customer_group = frappe.db.get_single_value("Selling Settings", "customer_group") or "Individual"
         cust_doc.territory = frappe.db.get_single_value("Selling Settings", "territory") or "All Territories"
         cust_doc.is_hotel_guest = 1
-        if phone:
-            cust_doc.mobile_no = phone
-        if email:
-            cust_doc.email_id = email
+        if clean_phone:
+            cust_doc.mobile_no = clean_phone
+        if clean_email:
+            cust_doc.email_id = clean_email
         cust_doc.flags.ignore_mandatory = True
         cust_doc.insert(ignore_permissions=True)
         customer = cust_doc.name
     else:
-        if phone:
-            frappe.db.set_value("Customer", customer, "mobile_no", phone)
+        if clean_phone:
+            frappe.db.set_value("Customer", customer, "mobile_no", clean_phone)
+        if clean_email:
+            frappe.db.set_value("Customer", customer, "email_id", clean_email)
 
     # 2. Resolve Company & Room Rate
     settings = frappe.get_single("Hotel Settings")
@@ -379,9 +432,6 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
 
     if not room_rate:
         room_rate = frappe.db.get_value("Hotel Room Type", room_data.room_type, "base_rate") or 0.0
-
-    cin_date = checkin_date or today()
-    cout_date = expected_checkout_date or add_days(cin_date, 1)
 
     # 3. Create Hotel Stay
     stay = frappe.new_doc("Hotel Stay")
@@ -402,7 +452,6 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
     stay.insert(ignore_permissions=True)
 
     # 4. Record Advance Payment if entered
-    adv = flt(advance_amount)
     if adv > 0:
         try:
             create_hotel_payment_entry(
@@ -431,29 +480,61 @@ def quick_walkin_checkin(guest_name, room, room_rate=None, phone=None, email=Non
 
 @frappe.whitelist()
 def quick_create_reservation(guest_name, arrival_date, departure_date, room_type, assigned_room=None, room_rate=None, phone=None, email=None, advance_amount=0, mode_of_payment=None):
-    """Direct 1-click Advance Reservation from Dashboard"""
-    if not guest_name:
-        frappe.throw(_("Guest Name is mandatory."))
+    """Direct 1-click Advance Reservation from Dashboard with strict validations"""
+    customer_name = validate_guest_name(guest_name)
+    clean_phone = validate_phone_number(phone, mandatory=True)
+    clean_email = validate_email_address_str(email, mandatory=False)
+
     if not arrival_date or not departure_date:
         frappe.throw(_("Arrival and Departure dates are mandatory."))
+    if getdate(arrival_date) < getdate(today()):
+        frappe.throw(_("Arrival Date cannot be in the past."))
+    if getdate(departure_date) <= getdate(arrival_date):
+        frappe.throw(_("Departure Date must be strictly after Arrival Date."))
+
     if not room_type:
         frappe.throw(_("Room Type is mandatory."))
 
+    if room_rate is not None and flt(room_rate) <= 0:
+        frappe.throw(_("Rate Per Night must be greater than zero."))
+
+    adv = flt(advance_amount)
+    if adv < 0:
+        frappe.throw(_("Advance Amount cannot be negative."))
+
+    # Collision check if room is assigned in advance
+    if assigned_room:
+        collision = frappe.db.sql("""
+            SELECT name FROM `tabHotel Reservation`
+            WHERE assigned_room = %s
+              AND docstatus < 2
+              AND status in ('Confirmed', 'Checked In')
+              AND arrival_date < %s AND departure_date > %s
+        """, (assigned_room, departure_date, arrival_date))
+        if collision:
+            frappe.throw(_("Room {0} already has a conflicting reservation #{1} between {2} and {3}.").format(
+                assigned_room, collision[0][0], arrival_date, departure_date
+            ))
+
     # Resolve or create Customer
-    customer_name = guest_name.strip()
     customer = frappe.db.get_value("Customer", {"customer_name": customer_name}, "name")
     if not customer:
         cust_doc = frappe.new_doc("Customer")
         cust_doc.customer_name = customer_name
         cust_doc.customer_type = "Individual"
         cust_doc.is_hotel_guest = 1
-        if phone:
-            cust_doc.mobile_no = phone
-        if email:
-            cust_doc.email_id = email
+        if clean_phone:
+            cust_doc.mobile_no = clean_phone
+        if clean_email:
+            cust_doc.email_id = clean_email
         cust_doc.flags.ignore_mandatory = True
         cust_doc.insert(ignore_permissions=True)
         customer = cust_doc.name
+    else:
+        if clean_phone:
+            frappe.db.set_value("Customer", customer, "mobile_no", clean_phone)
+        if clean_email:
+            frappe.db.set_value("Customer", customer, "email_id", clean_email)
 
     settings = frappe.get_single("Hotel Settings")
     company = settings.company or frappe.defaults.get_user_default("Company") or frappe.db.get_value("Company", {}, "name")
@@ -475,7 +556,6 @@ def quick_create_reservation(guest_name, arrival_date, departure_date, room_type
     res.submit()
 
     # Record advance payment if collected
-    adv = flt(advance_amount)
     if adv > 0:
         try:
             create_hotel_payment_entry(
@@ -499,14 +579,23 @@ def quick_create_reservation(guest_name, arrival_date, departure_date, room_type
 
 @frappe.whitelist()
 def add_folio_charge(stay=None, folio=None, charge_type=None, amount=0, description=None, qty=1, **kwargs):
-    """Add extra charge (Food, Laundry, Minibar, etc.) to Folio from Dashboard"""
+    """Add extra charge (Food, Laundry, Minibar, etc.) to Folio from Dashboard with validation"""
     if not folio and stay:
         folio = frappe.db.get_value("Hotel Stay", stay, "folio")
 
     if not folio:
         frappe.throw(_("No Guest Folio found for this stay."))
 
+    if not charge_type:
+        frappe.throw(_("Charge Type is mandatory."))
+
     rate_val = flt(amount)
+    if rate_val <= 0:
+        frappe.throw(_("Charge amount must be greater than zero."))
+
+    qty_val = flt(qty) or 1.0
+    if qty_val <= 0:
+        frappe.throw(_("Charge quantity must be at least 1."))
     if rate_val <= 0:
         frappe.throw(_("Charge amount must be greater than zero."))
 
@@ -549,10 +638,14 @@ def collect_stay_payment(stay=None, folio=None, amount=0, mode_of_payment=None, 
     if not stay:
         frappe.throw(_("Stay ID is required."))
 
-    stay_doc = frappe.get_doc("Hotel Stay", stay)
     pay_amount = flt(amount)
     if pay_amount <= 0:
         frappe.throw(_("Payment amount must be greater than zero."))
+
+    if not mode_of_payment:
+        frappe.throw(_("Mode of Payment is mandatory."))
+
+    stay_doc = frappe.get_doc("Hotel Stay", stay)
 
     settings = frappe.get_single("Hotel Settings")
     company = stay_doc.company or settings.company or frappe.defaults.get_user_default("Company")

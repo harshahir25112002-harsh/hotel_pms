@@ -1,3 +1,4 @@
+import re
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -6,6 +7,8 @@ from frappe.utils import date_diff, flt, getdate, today
 class HotelReservation(Document):
     def validate(self):
         self.validate_dates()
+        self.validate_guest_contact()
+        self.validate_tariff()
         self.calculate_financials()
         self.check_room_availability()
 
@@ -13,10 +16,34 @@ class HotelReservation(Document):
         if not self.arrival_date or not self.departure_date:
             frappe.throw(_("Arrival and Departure dates are mandatory."))
 
+        if self.is_new() and getdate(self.arrival_date) < getdate(today()):
+            frappe.throw(_("Arrival Date cannot be in the past."))
+
         if getdate(self.departure_date) <= getdate(self.arrival_date):
             frappe.throw(_("Departure date must be after Arrival date."))
 
         self.nights = max(1, date_diff(self.departure_date, self.arrival_date))
+
+    def validate_guest_contact(self):
+        if self.contact_phone:
+            clean = re.sub(r"[\s\-\(\)\.]", "", str(self.contact_phone).strip())
+            digits = clean[1:] if clean.startswith("+") else clean
+            if not digits.isdigit() or len(digits) < 10 or len(digits) > 15:
+                frappe.throw(_("Invalid Contact Phone '{0}'. Phone number must contain between 10 and 15 digits.").format(self.contact_phone))
+            self.contact_phone = clean
+
+        if self.contact_email:
+            from frappe.utils import validate_email_address
+            try:
+                validate_email_address(self.contact_email.strip(), throw=True)
+            except Exception:
+                frappe.throw(_("Invalid Contact Email '{0}'.").format(self.contact_email))
+
+    def validate_tariff(self):
+        if flt(self.room_rate) <= 0:
+            frappe.throw(_("Daily Room Rate must be greater than zero."))
+        if flt(self.advance_paid) < 0:
+            frappe.throw(_("Advance Paid cannot be negative."))
 
     def calculate_financials(self):
         self.estimated_total = flt(self.nights * flt(self.room_rate), 2)

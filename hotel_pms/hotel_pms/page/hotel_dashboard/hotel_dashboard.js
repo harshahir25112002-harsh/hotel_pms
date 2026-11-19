@@ -1,4 +1,4 @@
-frappe.pages["hotel_dashboard"].on_page_load = function(wrapper) {
+frappe.pages["hotel_dashboard"].on_page_load = function (wrapper) {
     let page = frappe.ui.make_app_page({
         parent: wrapper,
         title: __("Front Desk & Room Rack"),
@@ -8,7 +8,7 @@ frappe.pages["hotel_dashboard"].on_page_load = function(wrapper) {
     wrapper.hotel_dashboard = new HotelDashboard(page);
 };
 
-frappe.pages["hotel_dashboard"].on_page_show = function(wrapper) {
+frappe.pages["hotel_dashboard"].on_page_show = function (wrapper) {
     if (wrapper.hotel_dashboard) {
         wrapper.hotel_dashboard.load_data();
     }
@@ -297,10 +297,10 @@ class HotelDashboard {
                                     <span>${r.departure_status ? `<span class="pill-alert">${r.departure_status}</span>` : ''}</span>
                                 </div>
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    ${r.folio_balance > 0 ? 
-                                        `<span class="room-folio-pill pill-due">Due: ${format_currency(r.folio_balance, currency)}</span>` : 
-                                        `<span class="room-folio-pill pill-settled">✓ Paid</span>`
-                                    }
+                                    ${r.folio_balance > 0 ?
+                        `<span class="room-folio-pill pill-due">Due: ${format_currency(r.folio_balance, currency)}</span>` :
+                        `<span class="room-folio-pill pill-settled">✓ Paid</span>`
+                    }
                                     ${r.is_cleaning_requested ? `<span title="Morning cleaning requested" style="font-size:14px;">🧹</span>` : ''}
                                 </div>
                             </div>
@@ -446,6 +446,63 @@ class HotelDashboard {
             ],
             primary_action_label: __("Complete Check-In"),
             primary_action: (vals) => {
+                // Validation: Guest Name
+                let gName = (vals.guest_name || "").trim();
+                if (!gName || gName.length < 2) {
+                    frappe.msgprint(__("Please enter a valid Guest Full Name (minimum 2 characters)."));
+                    return false;
+                }
+
+                // Validation: Mobile Number (10-15 digits)
+                let rawPhone = (vals.phone || "").trim();
+                let cleanPhone = rawPhone.replace(/\D/g, "");
+                if (!rawPhone || cleanPhone.length < 10 || cleanPhone.length > 15) {
+                    frappe.msgprint(__("Please enter a valid Mobile Number (10 to 15 digits)."));
+                    return false;
+                }
+
+                // Validation: Email (if entered)
+                if (vals.email && vals.email.trim()) {
+                    let emailTrim = vals.email.trim();
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+                        frappe.msgprint(__("Please enter a valid Email Address."));
+                        return false;
+                    }
+                }
+
+                // Validation: Dates
+                if (vals.checkin_date && vals.expected_checkout_date) {
+                    if (frappe.datetime.str_to_obj(vals.expected_checkout_date) < frappe.datetime.str_to_obj(vals.checkin_date)) {
+                        frappe.msgprint(__("Expected Checkout Date cannot be before Check-in Date."));
+                        return false;
+                    }
+                }
+
+                // Validation: Room Rate
+                if (flt(vals.room_rate) <= 0) {
+                    frappe.msgprint(__("Daily Room Rate must be greater than zero."));
+                    return false;
+                }
+
+                // Validation: Advance Amount
+                if (flt(vals.advance_amount) < 0) {
+                    frappe.msgprint(__("Advance Amount cannot be negative."));
+                    return false;
+                }
+
+                // Validation: KYC Document
+                if (vals.id_proof_type && vals.id_proof_number) {
+                    let idNum = vals.id_proof_number.trim().replace(/\s+/g, "");
+                    if (vals.id_proof_type === "Aadhaar" && (!/^\d{12}$/.test(idNum))) {
+                        frappe.msgprint(__("Aadhaar Card number must be exactly 12 digits."));
+                        return false;
+                    }
+                    if (vals.id_proof_type === "PAN" && (!/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/.test(idNum))) {
+                        frappe.msgprint(__("Invalid PAN Card format (expected e.g. ABCDE1234F)."));
+                        return false;
+                    }
+                }
+
                 frappe.call({
                     method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.quick_walkin_checkin",
                     args: vals,
@@ -475,15 +532,15 @@ class HotelDashboard {
         stay = String(stay || "").trim();
 
         // 1. Find from rooms array
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === room ||
             String(x.room_number).trim() === room ||
             (stay && String(x.stay_name).trim() === stay)
         ) || {};
 
         // 2. Also match from inhouse array
-        let inhouse_info = (this.data.inhouse || []).find(x => 
-            (stay && String(x.stay).trim() === stay) || 
+        let inhouse_info = (this.data.inhouse || []).find(x =>
+            (stay && String(x.stay).trim() === stay) ||
             String(x.room).trim() === room ||
             String(x.room_number).trim() === room
         );
@@ -627,14 +684,14 @@ class HotelDashboard {
         room = String(room || "").trim();
         stay = String(stay || "").trim();
 
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === room ||
             String(x.room_number).trim() === room ||
             (stay && String(x.stay_name).trim() === stay)
         ) || {};
 
-        let inhouse_info = (this.data.inhouse || []).find(x => 
-            (stay && String(x.stay).trim() === stay) || 
+        let inhouse_info = (this.data.inhouse || []).find(x =>
+            (stay && String(x.stay).trim() === stay) ||
             String(x.room).trim() === room
         );
 
@@ -679,6 +736,15 @@ class HotelDashboard {
             ],
             primary_action_label: __("Post Charge to Folio"),
             primary_action: (vals) => {
+                if (flt(vals.amount) <= 0) {
+                    frappe.msgprint(__("Charge Amount must be greater than zero."));
+                    return false;
+                }
+                if (flt(vals.qty) <= 0) {
+                    frappe.msgprint(__("Quantity must be at least 1."));
+                    return false;
+                }
+
                 vals.stay = stay;
                 frappe.call({
                     method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.add_folio_charge",
@@ -707,14 +773,14 @@ class HotelDashboard {
         room = String(room || "").trim();
         stay = String(stay || "").trim();
 
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === room ||
             String(x.room_number).trim() === room ||
             (stay && String(x.stay_name).trim() === stay)
         ) || {};
 
-        let inhouse_info = (this.data.inhouse || []).find(x => 
-            (stay && String(x.stay).trim() === stay) || 
+        let inhouse_info = (this.data.inhouse || []).find(x =>
+            (stay && String(x.stay).trim() === stay) ||
             String(x.room).trim() === room
         );
 
@@ -753,6 +819,15 @@ class HotelDashboard {
             ],
             primary_action_label: __("Record Payment Entry"),
             primary_action: (vals) => {
+                if (flt(vals.amount) <= 0) {
+                    frappe.msgprint(__("Payment Amount must be greater than zero."));
+                    return false;
+                }
+                if (!vals.mode_of_payment) {
+                    frappe.msgprint(__("Please select a Mode of Payment."));
+                    return false;
+                }
+
                 vals.stay = stay;
                 frappe.call({
                     method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.collect_stay_payment",
@@ -866,6 +941,51 @@ class HotelDashboard {
             ],
             primary_action_label: __("Confirm Booking"),
             primary_action: (vals) => {
+                // Validation: Guest Name
+                let gName = (vals.guest_name || "").trim();
+                if (!gName || gName.length < 2) {
+                    frappe.msgprint(__("Please enter a valid Guest Full Name (minimum 2 characters)."));
+                    return false;
+                }
+
+                // Validation: Mobile Number (10-15 digits)
+                let rawPhone = (vals.phone || "").trim();
+                let cleanPhone = rawPhone.replace(/\D/g, "");
+                if (!rawPhone || cleanPhone.length < 10 || cleanPhone.length > 15) {
+                    frappe.msgprint(__("Please enter a valid Mobile Number (10 to 15 digits)."));
+                    return false;
+                }
+
+                // Validation: Email (if entered)
+                if (vals.email && vals.email.trim()) {
+                    let emailTrim = vals.email.trim();
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+                        frappe.msgprint(__("Please enter a valid Email Address."));
+                        return false;
+                    }
+                }
+
+                // Validation: Dates
+                let todayDate = frappe.datetime.get_today();
+                if (vals.arrival_date < todayDate) {
+                    frappe.msgprint(__("Arrival Date cannot be in the past."));
+                    return false;
+                }
+                if (vals.departure_date <= vals.arrival_date) {
+                    frappe.msgprint(__("Departure Date must be strictly after Arrival Date."));
+                    return false;
+                }
+
+                // Validation: Room Rate & Advance
+                if (flt(vals.room_rate) <= 0) {
+                    frappe.msgprint(__("Rate Per Night must be greater than zero."));
+                    return false;
+                }
+                if (flt(vals.advance_amount) < 0) {
+                    frappe.msgprint(__("Advance Deposit cannot be negative."));
+                    return false;
+                }
+
                 frappe.call({
                     method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.quick_create_reservation",
                     args: vals,
@@ -894,14 +1014,14 @@ class HotelDashboard {
         room = String(room || "").trim();
         stay = String(stay || "").trim();
 
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === room ||
             String(x.room_number).trim() === room ||
             (stay && String(x.stay_name).trim() === stay)
         ) || {};
 
-        let inhouse_info = (this.data.inhouse || []).find(x => 
-            (stay && String(x.stay).trim() === stay) || 
+        let inhouse_info = (this.data.inhouse || []).find(x =>
+            (stay && String(x.stay).trim() === stay) ||
             String(x.room).trim() === room
         );
 
@@ -960,6 +1080,11 @@ class HotelDashboard {
                 ],
                 primary_action_label: __("Settle & Complete Checkout"),
                 primary_action: (vals) => {
+                    if (flt(vals.settle_balance) > 0 && !vals.mode_of_payment) {
+                        frappe.msgprint(__("Please select a Mode of Payment to settle the balance."));
+                        return false;
+                    }
+
                     frappe.call({
                         method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.instant_checkout",
                         args: {
@@ -991,14 +1116,14 @@ class HotelDashboard {
         current_room = String(current_room || "").trim();
         stay = String(stay || "").trim();
 
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === current_room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === current_room ||
             String(x.room_number).trim() === current_room ||
             (stay && String(x.stay_name).trim() === stay)
         ) || {};
 
-        let inhouse_info = (this.data.inhouse || []).find(x => 
-            (stay && String(x.stay).trim() === stay) || 
+        let inhouse_info = (this.data.inhouse || []).find(x =>
+            (stay && String(x.stay).trim() === stay) ||
             String(x.room).trim() === current_room
         );
 
@@ -1028,6 +1153,15 @@ class HotelDashboard {
             ],
             primary_action_label: __("Confirm Room Transfer"),
             primary_action: (vals) => {
+                if (!vals.new_room) {
+                    frappe.msgprint(__("Please select a target clean room."));
+                    return false;
+                }
+                if (!vals.reason || !vals.reason.trim()) {
+                    frappe.msgprint(__("Please provide a reason for the room transfer."));
+                    return false;
+                }
+
                 frappe.call({
                     method: "hotel_pms.hotel_pms.doctype.hotel_stay.hotel_stay.move_room",
                     args: {
@@ -1057,8 +1191,8 @@ class HotelDashboard {
         room = String(room || "").trim();
         stay = String(stay || "").trim();
 
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === room ||
             String(x.room_number).trim() === room
         ) || {};
         let target_room = r_info.room || room;
@@ -1087,8 +1221,8 @@ class HotelDashboard {
     mark_clean(room) {
         room = String(room || "").trim();
 
-        let r_info = (this.data.rooms || []).find(x => 
-            String(x.room).trim() === room || 
+        let r_info = (this.data.rooms || []).find(x =>
+            String(x.room).trim() === room ||
             String(x.room_number).trim() === room
         ) || {};
         let target_room = r_info.room || room;
@@ -1151,10 +1285,10 @@ class HotelDashboard {
                         ${a.assigned_room ? `<strong style="font-size:14px;">Room ${a.assigned_room}</strong>` : `<span class="text-warning font-bold">Unassigned</span>`}
                     </td>
                     <td>
-                        ${a.advance_paid > 0 ? 
-                            `<span class="table-badge badge-clean">Paid ${format_currency(a.advance_paid, currency)}</span>` : 
-                            `<span class="table-badge badge-dirty">Unpaid</span>`
-                        }
+                        ${a.advance_paid > 0 ?
+                    `<span class="table-badge badge-clean">Paid ${format_currency(a.advance_paid, currency)}</span>` :
+                    `<span class="table-badge badge-dirty">Unpaid</span>`
+                }
                     </td>
                     <td>
                         <button class="btn btn-xs btn-primary btn-checkin-arrival" data-res="${a.name}" data-room="${a.assigned_room || ''}">
@@ -1256,10 +1390,10 @@ class HotelDashboard {
                         <div class="text-danger" style="font-size: 11px; font-weight:700;">${d.departure_status || 'Due'}</div>
                     </td>
                     <td>
-                        ${d.balance_due > 0 ? 
-                            `<span class="table-badge badge-dirty font-bold">Due ${format_currency(d.balance_due, currency)}</span>` : 
-                            `<span class="table-badge badge-clean">✓ Paid</span>`
-                        }
+                        ${d.balance_due > 0 ?
+                    `<span class="table-badge badge-dirty font-bold">Due ${format_currency(d.balance_due, currency)}</span>` :
+                    `<span class="table-badge badge-clean">✓ Paid</span>`
+                }
                     </td>
                     <td>
                         <button class="btn btn-xs btn-default btn-departure-checkout" data-stay="${d.stay}" data-room="${d.room}" data-balance="${d.balance_due}">
@@ -1322,10 +1456,10 @@ class HotelDashboard {
                     <td>${format_currency(g.total_charges, currency)}</td>
                     <td class="text-success font-bold">${format_currency(g.total_paid, currency)}</td>
                     <td>
-                        ${g.balance_due > 0 ? 
-                            `<span class="table-badge badge-dirty font-bold">Due ${format_currency(g.balance_due, currency)}</span>` : 
-                            `<span class="table-badge badge-clean">✓ Paid</span>`
-                        }
+                        ${g.balance_due > 0 ?
+                    `<span class="table-badge badge-dirty font-bold">Due ${format_currency(g.balance_due, currency)}</span>` :
+                    `<span class="table-badge badge-clean">✓ Paid</span>`
+                }
                     </td>
                     <td>
                         <button class="btn btn-xs btn-default btn-row-charge" data-stay="${g.stay}" data-room="${g.room}">➕ ${__("Charge")}</button>

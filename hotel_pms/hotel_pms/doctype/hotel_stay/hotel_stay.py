@@ -1,9 +1,52 @@
+import re
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt, nowdate, today, date_diff, now_datetime
+from frappe.utils import flt, nowdate, today, date_diff, now_datetime, getdate
 
 class HotelStay(Document):
+    def validate(self):
+        self.validate_dates()
+        self.validate_tariff()
+        self.validate_kyc()
+        self.validate_room_availability()
+
+    def validate_dates(self):
+        if not self.checkin_date:
+            self.checkin_date = today()
+        if not self.expected_checkout_date:
+            self.expected_checkout_date = today()
+
+        if getdate(self.expected_checkout_date) < getdate(self.checkin_date):
+            frappe.throw(_("Expected Checkout Date cannot be before Check-in Date."))
+
+    def validate_tariff(self):
+        if flt(self.room_rate) <= 0:
+            frappe.throw(_("Daily Room Rate must be greater than zero."))
+
+    def validate_kyc(self):
+        if self.id_proof_type and not self.id_proof_number:
+            frappe.throw(_("ID Proof Number is required when ID Proof Type is selected."))
+        if self.id_proof_number:
+            clean_num = str(self.id_proof_number).strip().replace(" ", "").replace("-", "").upper()
+            if self.id_proof_type == "Aadhaar":
+                if not clean_num.isdigit() or len(clean_num) != 12:
+                    frappe.throw(_("Invalid Aadhaar Number '{0}'. Aadhaar must contain exactly 12 digits.").format(self.id_proof_number))
+            elif self.id_proof_type == "PAN":
+                if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", clean_num):
+                    frappe.throw(_("Invalid PAN format '{0}'. PAN must be 10 characters (e.g. ABCDE1234F).").format(self.id_proof_number))
+
+    def validate_room_availability(self):
+        if self.status == "Active" and self.room:
+            if self.is_new() or self.has_value_changed("room") or self.has_value_changed("status"):
+                active = frappe.db.get_value("Hotel Stay", {
+                    "room": self.room,
+                    "status": "Active",
+                    "name": ["!=", self.name or ""]
+                }, "name")
+                if active:
+                    frappe.throw(_("Room {0} already has an Active stay ({1}).").format(self.room, active))
+
     def after_insert(self):
         self.lock_room_and_create_folio()
 
@@ -97,8 +140,14 @@ class HotelStay(Document):
         if self.status != "Active":
             frappe.throw(_("Room movement is only allowed for Active stays."))
 
+        if not new_room:
+            frappe.throw(_("Target Room is mandatory."))
+
         if new_room == self.room:
             frappe.throw(_("New room cannot be the same as the current room."))
+
+        if not reason or not str(reason).strip():
+            frappe.throw(_("Reason for room change is mandatory."))
 
         room_data = frappe.db.get_value("Hotel Room", new_room, ["status", "room_type"], as_dict=True)
         if not room_data:

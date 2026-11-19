@@ -71,6 +71,13 @@ class GuestFolio(Document):
     @frappe.whitelist()
     def add_charge(self, charge_type, rate, qty=1, item=None, description=None, room=None, **kwargs):
         """Append a new charge entry and recalculate folio"""
+        if not charge_type:
+            frappe.throw(_("Charge Type is mandatory."))
+        if flt(rate) <= 0:
+            frappe.throw(_("Charge rate must be greater than zero."))
+        if flt(qty) <= 0:
+            frappe.throw(_("Charge quantity must be at least 1."))
+
         self.append("charges", {
             "posting_date": today(),
             "charge_type": charge_type,
