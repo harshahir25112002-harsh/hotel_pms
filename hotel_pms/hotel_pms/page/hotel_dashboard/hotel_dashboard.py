@@ -323,10 +323,15 @@ def validate_phone_number(phone, mandatory=False):
         if mandatory:
             frappe.throw(_("Guest Mobile Number is mandatory."))
         return ""
-    clean = re.sub(r"[\s\-\(\)\.]", "", str(phone).strip())
-    digits = clean[1:] if clean.startswith("+") else clean
-    if not digits.isdigit() or len(digits) < 10 or len(digits) > 15:
-        frappe.throw(_("Invalid Mobile Number '{0}'. Mobile number must contain between 10 and 15 digits.").format(phone))
+    clean = re.sub(r"\D", "", str(phone).strip())
+    # Strip country code 91 or leading 0 if entered
+    if len(clean) == 12 and clean.startswith("91"):
+        clean = clean[2:]
+    elif len(clean) == 11 and clean.startswith("0"):
+        clean = clean[1:]
+
+    if len(clean) != 10:
+        frappe.throw(_("Invalid Mobile Number '{0}'. Mobile number must be exactly 10 digits (e.g. 9876543210).").format(phone))
     return clean
 
 def validate_email_address_str(email, mandatory=False):
@@ -352,11 +357,12 @@ def validate_id_proof(id_type, id_number):
 
     clean_num = str(id_number).strip().replace(" ", "").replace("-", "").upper()
     if id_type == "Aadhaar":
-        if not clean_num.isdigit() or len(clean_num) != 12:
+        clean_digits = re.sub(r"\D", "", clean_num)
+        if len(clean_digits) != 12:
             frappe.throw(_("Invalid Aadhaar Number '{0}'. Aadhaar must contain exactly 12 digits.").format(id_number))
     elif id_type == "PAN":
         if not re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", clean_num):
-            frappe.throw(_("Invalid PAN Card format '{0}'. PAN must be 10 characters (e.g. ABCDE1234F).").format(id_number))
+            frappe.throw(_("Invalid PAN Card format '{0}'. PAN must be exactly 10 characters (e.g. ABCDE1234F).").format(id_number))
     elif id_type == "Passport":
         if len(clean_num) < 6 or len(clean_num) > 15 or not clean_num.isalnum():
             frappe.throw(_("Invalid Passport Number '{0}'.").format(id_number))

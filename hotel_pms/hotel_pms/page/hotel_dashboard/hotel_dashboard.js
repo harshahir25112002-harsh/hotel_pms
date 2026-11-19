@@ -453,13 +453,17 @@ class HotelDashboard {
                     return false;
                 }
 
-                // Validation: Mobile Number (10-15 digits)
+                // Validation: Mobile Number (strictly 10 digits)
                 let rawPhone = (vals.phone || "").trim();
                 let cleanPhone = rawPhone.replace(/\D/g, "");
-                if (!rawPhone || cleanPhone.length < 10 || cleanPhone.length > 15) {
-                    frappe.msgprint(__("Please enter a valid Mobile Number (10 to 15 digits)."));
+                if (cleanPhone.length === 12 && cleanPhone.startsWith("91")) cleanPhone = cleanPhone.substring(2);
+                if (cleanPhone.length === 11 && cleanPhone.startsWith("0")) cleanPhone = cleanPhone.substring(1);
+
+                if (!rawPhone || cleanPhone.length !== 10) {
+                    frappe.msgprint(__("Mobile Number must be exactly 10 digits (e.g. 9876543210)."));
                     return false;
                 }
+                vals.phone = cleanPhone;
 
                 // Validation: Email (if entered)
                 if (vals.email && vals.email.trim()) {
@@ -493,13 +497,20 @@ class HotelDashboard {
                 // Validation: KYC Document
                 if (vals.id_proof_type && vals.id_proof_number) {
                     let idNum = vals.id_proof_number.trim().replace(/\s+/g, "");
-                    if (vals.id_proof_type === "Aadhaar" && (!/^\d{12}$/.test(idNum))) {
-                        frappe.msgprint(__("Aadhaar Card number must be exactly 12 digits."));
-                        return false;
-                    }
-                    if (vals.id_proof_type === "PAN" && (!/^[A-Za-z]{5}\d{4}[A-Za-z]{1}$/.test(idNum))) {
-                        frappe.msgprint(__("Invalid PAN Card format (expected e.g. ABCDE1234F)."));
-                        return false;
+                    if (vals.id_proof_type === "Aadhaar") {
+                        let cleanAadhaar = idNum.replace(/\D/g, "");
+                        if (cleanAadhaar.length !== 12) {
+                            frappe.msgprint(__("Aadhaar Card number must be exactly 12 digits."));
+                            return false;
+                        }
+                        vals.id_proof_number = cleanAadhaar;
+                    } else if (vals.id_proof_type === "PAN") {
+                        let cleanPan = idNum.toUpperCase();
+                        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
+                            frappe.msgprint(__("Invalid PAN Card format (expected e.g. ABCDE1234F)."));
+                            return false;
+                        }
+                        vals.id_proof_number = cleanPan;
                     }
                 }
 
@@ -521,7 +532,64 @@ class HotelDashboard {
                 });
             }
         });
+
         d.show();
+
+        // Live mask on Phone input: max 10 digits, only numbers
+        if (d.fields_dict.phone && d.fields_dict.phone.$input) {
+            let $phoneInput = d.fields_dict.phone.$input;
+            $phoneInput.attr("maxlength", "10");
+            $phoneInput.attr("type", "tel");
+            $phoneInput.on("input", function() {
+                let clean = $(this).val().replace(/\D/g, "");
+                if (clean.length > 10) clean = clean.substring(0, 10);
+                $(this).val(clean);
+            });
+        }
+
+        // Live mask on ID Proof input
+        let apply_id_mask = () => {
+            let idType = d.get_value("id_proof_type");
+            let $idInput = d.fields_dict.id_proof_number ? d.fields_dict.id_proof_number.$input : null;
+            if (!$idInput) return;
+
+            if (idType === "Aadhaar") {
+                $idInput.attr("maxlength", "12");
+                $idInput.attr("placeholder", "12-digit Aadhaar Number");
+                let clean = $idInput.val().replace(/\D/g, "");
+                if (clean.length > 12) clean = clean.substring(0, 12);
+                $idInput.val(clean);
+            } else if (idType === "PAN") {
+                $idInput.attr("maxlength", "10");
+                $idInput.attr("placeholder", "10-character PAN (e.g. ABCDE1234F)");
+                let clean = $idInput.val().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                if (clean.length > 10) clean = clean.substring(0, 10);
+                $idInput.val(clean);
+            } else {
+                $idInput.attr("maxlength", "20");
+                $idInput.attr("placeholder", "ID Number");
+            }
+        };
+
+        if (d.fields_dict.id_proof_number && d.fields_dict.id_proof_number.$input) {
+            d.fields_dict.id_proof_number.$input.on("input", function() {
+                let idType = d.get_value("id_proof_type");
+                if (idType === "Aadhaar") {
+                    let clean = $(this).val().replace(/\D/g, "");
+                    if (clean.length > 12) clean = clean.substring(0, 12);
+                    $(this).val(clean);
+                } else if (idType === "PAN") {
+                    let clean = $(this).val().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                    if (clean.length > 10) clean = clean.substring(0, 10);
+                    $(this).val(clean);
+                }
+            });
+        }
+
+        if (d.fields_dict.id_proof_type && d.fields_dict.id_proof_type.$input) {
+            d.fields_dict.id_proof_type.$input.on("change", apply_id_mask);
+        }
+        apply_id_mask();
     }
 
     // ----------------------------------------------------------------------
@@ -763,7 +831,20 @@ class HotelDashboard {
                 });
             }
         });
+
         d.show();
+
+        // Live mask on Phone input: max 10 digits, only numbers
+        if (d.fields_dict.phone && d.fields_dict.phone.$input) {
+            let $phoneInput = d.fields_dict.phone.$input;
+            $phoneInput.attr("maxlength", "10");
+            $phoneInput.attr("type", "tel");
+            $phoneInput.on("input", function() {
+                let clean = $(this).val().replace(/\D/g, "");
+                if (clean.length > 10) clean = clean.substring(0, 10);
+                $(this).val(clean);
+            });
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -847,7 +928,20 @@ class HotelDashboard {
                 });
             }
         });
+
         d.show();
+
+        // Live mask on Phone input: max 10 digits, only numbers
+        if (d.fields_dict.phone && d.fields_dict.phone.$input) {
+            let $phoneInput = d.fields_dict.phone.$input;
+            $phoneInput.attr("maxlength", "10");
+            $phoneInput.attr("type", "tel");
+            $phoneInput.on("input", function() {
+                let clean = $(this).val().replace(/\D/g, "");
+                if (clean.length > 10) clean = clean.substring(0, 10);
+                $(this).val(clean);
+            });
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -948,13 +1042,17 @@ class HotelDashboard {
                     return false;
                 }
 
-                // Validation: Mobile Number (10-15 digits)
+                // Validation: Mobile Number (strictly 10 digits)
                 let rawPhone = (vals.phone || "").trim();
                 let cleanPhone = rawPhone.replace(/\D/g, "");
-                if (!rawPhone || cleanPhone.length < 10 || cleanPhone.length > 15) {
-                    frappe.msgprint(__("Please enter a valid Mobile Number (10 to 15 digits)."));
+                if (cleanPhone.length === 12 && cleanPhone.startsWith("91")) cleanPhone = cleanPhone.substring(2);
+                if (cleanPhone.length === 11 && cleanPhone.startsWith("0")) cleanPhone = cleanPhone.substring(1);
+
+                if (!rawPhone || cleanPhone.length !== 10) {
+                    frappe.msgprint(__("Mobile Number must be exactly 10 digits (e.g. 9876543210)."));
                     return false;
                 }
+                vals.phone = cleanPhone;
 
                 // Validation: Email (if entered)
                 if (vals.email && vals.email.trim()) {
@@ -1004,7 +1102,20 @@ class HotelDashboard {
                 });
             }
         });
+
         d.show();
+
+        // Live mask on Phone input: max 10 digits, only numbers
+        if (d.fields_dict.phone && d.fields_dict.phone.$input) {
+            let $phoneInput = d.fields_dict.phone.$input;
+            $phoneInput.attr("maxlength", "10");
+            $phoneInput.attr("type", "tel");
+            $phoneInput.on("input", function() {
+                let clean = $(this).val().replace(/\D/g, "");
+                if (clean.length > 10) clean = clean.substring(0, 10);
+                $(this).val(clean);
+            });
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -1181,6 +1292,7 @@ class HotelDashboard {
                 });
             }
         });
+
         d.show();
     }
 

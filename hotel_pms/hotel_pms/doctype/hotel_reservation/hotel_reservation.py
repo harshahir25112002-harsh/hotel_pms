@@ -26,10 +26,14 @@ class HotelReservation(Document):
 
     def validate_guest_contact(self):
         if self.contact_phone:
-            clean = re.sub(r"[\s\-\(\)\.]", "", str(self.contact_phone).strip())
-            digits = clean[1:] if clean.startswith("+") else clean
-            if not digits.isdigit() or len(digits) < 10 or len(digits) > 15:
-                frappe.throw(_("Invalid Contact Phone '{0}'. Phone number must contain between 10 and 15 digits.").format(self.contact_phone))
+            clean = re.sub(r"\D", "", str(self.contact_phone).strip())
+            if len(clean) == 12 and clean.startswith("91"):
+                clean = clean[2:]
+            elif len(clean) == 11 and clean.startswith("0"):
+                clean = clean[1:]
+
+            if len(clean) != 10:
+                frappe.throw(_("Invalid Contact Phone '{0}'. Mobile phone number must be exactly 10 digits (e.g. 9876543210).").format(self.contact_phone))
             self.contact_phone = clean
 
         if self.contact_email:

@@ -1,4 +1,31 @@
 frappe.ui.form.on("Hotel Reservation", {
+    validate: function(frm) {
+        if (frm.doc.contact_phone) {
+            let clean = frm.doc.contact_phone.replace(/\D/g, "");
+            if (clean.length === 12 && clean.startsWith("91")) clean = clean.substring(2);
+            if (clean.length === 11 && clean.startsWith("0")) clean = clean.substring(1);
+            if (clean.length !== 10) {
+                frappe.msgprint(__("Contact Phone must be exactly 10 digits (e.g. 9876543210)."));
+                frappe.validated = false;
+                return;
+            }
+            frm.doc.contact_phone = clean;
+        }
+
+        if (frm.doc.arrival_date && frm.doc.departure_date) {
+            if (frm.is_new() && frm.doc.arrival_date < frappe.datetime.get_today()) {
+                frappe.msgprint(__("Arrival Date cannot be in the past."));
+                frappe.validated = false;
+                return;
+            }
+            if (frm.doc.departure_date <= frm.doc.arrival_date) {
+                frappe.msgprint(__("Departure Date must be strictly after Arrival Date."));
+                frappe.validated = false;
+                return;
+            }
+        }
+    },
+
     refresh: function(frm) {
         if (!frm.is_new()) {
             // Check-In button available for Draft or Confirmed

@@ -1,4 +1,40 @@
 frappe.ui.form.on("Hotel Stay", {
+    validate: function(frm) {
+        if (frm.doc.id_proof_type === "Aadhaar" && frm.doc.id_proof_number) {
+            let clean = frm.doc.id_proof_number.replace(/\D/g, "");
+            if (clean.length !== 12) {
+                frappe.msgprint(__("Aadhaar Card number must be exactly 12 digits."));
+                frappe.validated = false;
+                return;
+            }
+            frm.doc.id_proof_number = clean;
+        } else if (frm.doc.id_proof_type === "PAN" && frm.doc.id_proof_number) {
+            let clean = frm.doc.id_proof_number.replace(/\s+/g, "").toUpperCase();
+            if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(clean)) {
+                frappe.msgprint(__("Invalid PAN Card format (expected e.g. ABCDE1234F)."));
+                frappe.validated = false;
+                return;
+            }
+            frm.doc.id_proof_number = clean;
+        }
+
+        if (frm.doc.expected_checkout_date && frm.doc.checkin_date) {
+            if (frappe.datetime.str_to_obj(frm.doc.expected_checkout_date) < frappe.datetime.str_to_obj(frm.doc.checkin_date)) {
+                frappe.msgprint(__("Expected Checkout Date cannot be before Check-in Date."));
+                frappe.validated = false;
+                return;
+            }
+        }
+    },
+
+    id_proof_type: function(frm) {
+        if (frm.doc.id_proof_type === "Aadhaar") {
+            frm.set_df_property("id_proof_number", "placeholder", "12-digit Aadhaar Number");
+        } else if (frm.doc.id_proof_type === "PAN") {
+            frm.set_df_property("id_proof_number", "placeholder", "10-character PAN (e.g. ABCDE1234F)");
+        }
+    },
+
     refresh: function(frm) {
         if (!frm.is_new() && frm.doc.status === "Active") {
             // View Folio button
