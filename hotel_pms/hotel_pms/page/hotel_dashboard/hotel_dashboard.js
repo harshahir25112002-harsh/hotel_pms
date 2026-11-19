@@ -1,95 +1,77 @@
 frappe.pages["hotel_dashboard"].on_page_load = function(wrapper) {
-    var page = frappe.ui.make_app_page({
+    let page = frappe.ui.make_app_page({
         parent: wrapper,
-        title: __("Hotel Front Desk & Room Rack"),
+        title: __("Front Desk & Room Rack"),
         single_column: true
     });
 
     wrapper.hotel_dashboard = new HotelDashboard(page);
 };
 
+frappe.pages["hotel_dashboard"].on_page_show = function(wrapper) {
+    if (wrapper.hotel_dashboard) {
+        wrapper.hotel_dashboard.load_data();
+    }
+};
+
 class HotelDashboard {
     constructor(page) {
         this.page = page;
-        this.selected_date = frappe.datetime.get_today();
+        this.data = {};
         this.active_filter = "All";
+        this.search_query = "";
+        this.selected_date = frappe.datetime.get_today();
+
         this.init();
     }
 
     init() {
-        this.setup_header_actions();
+        this.page.clear_actions();
+        this.page.clear_custom_actions();
         this.setup_dom();
         this.load_data();
-    }
-
-    setup_header_actions() {
-        // Quick Walk-In Check-In button (prominent green button)
-        this.page.set_primary_action(__("+ Quick Check-In"), () => {
-            this.open_quick_checkin_dialog();
-        }, "octicon octicon-check");
-
-        // Today Date shortcut
-        this.page.set_secondary_action(__("Today"), () => {
-            this.selected_date = frappe.datetime.get_today();
-            this.page.get_field("dashboard_date").set_value(this.selected_date);
-            this.load_data();
-        });
-
-        // Date Picker field
-        this.page.add_field({
-            fieldname: "dashboard_date",
-            label: __("Date"),
-            fieldtype: "Date",
-            default: this.selected_date,
-            change: () => {
-                let val = this.page.get_field("dashboard_date").get_value();
-                if (val) {
-                    this.selected_date = val;
-                    this.load_data();
-                }
-            }
-        });
-
-        // New Reservation
-        this.page.add_button(__("New Reservation"), () => {
-            frappe.new_doc("Hotel Reservation", {
-                arrival_date: this.selected_date
-            });
-        });
-
-        // Run Night Audit
-        this.page.add_button(__("Run Night Audit"), () => {
-            frappe.confirm(__("Run Night Audit for {0}? This will post daily room charges.", [this.selected_date]), () => {
-                frappe.call({
-                    method: "hotel_pms.hotel_pms.doctype.night_audit.night_audit.execute_daily_night_audit",
-                    callback: (r) => {
-                        frappe.show_alert({ message: __("Night Audit completed!"), indicator: "green" });
-                        this.load_data();
-                    }
-                });
-            });
-        });
-
-        // Refresh
-        this.page.add_button(__("Refresh"), () => {
-            this.load_data();
-        });
     }
 
     setup_dom() {
         this.$wrapper = $(`
             <div class="hotel-dashboard-container">
-                <!-- KPI Row -->
+                <!-- Header Bar -->
+                <div class="hotel-header-bar">
+                    <div class="hotel-brand-title">
+                        <div class="hotel-brand-icon">🏨</div>
+                        <div class="hotel-brand-text">
+                            <h1>${__("Front Desk Operations")}</h1>
+                            <p id="live-datetime">${frappe.datetime.str_to_user(this.selected_date)} · ${__("Room Rack & Operations")}</p>
+                        </div>
+                    </div>
+                    <div class="hotel-header-actions">
+                        <button class="btn-hotel-primary" id="btn-quick-walkin">
+                            ⚡ ${__("Walk-In Check-In")}
+                        </button>
+                        <button class="btn-hotel-accent" id="btn-new-reservation">
+                            📅 ${__("New Reservation")}
+                        </button>
+                        <button class="btn-hotel-outline" id="btn-refresh-data">
+                            🔄 ${__("Refresh")}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Metric Cards -->
                 <div class="kpi-grid" id="kpi-cards"></div>
 
-                <!-- Section Toolbar & Filters -->
-                <div class="section-toolbar">
-                    <div class="matrix-filter-pills" id="status-filters">
+                <!-- Filter & Search Toolbar -->
+                <div class="hotel-toolbar">
+                    <div class="filter-pills-group" id="filter-pills">
                         <button class="filter-pill active" data-filter="All">${__("All Rooms")}</button>
-                        <button class="filter-pill pill-clean" data-filter="Vacant Clean">🟢 ${__("Vacant Clean")}</button>
-                        <button class="filter-pill pill-dirty" data-filter="Vacant Dirty">🟡 ${__("Vacant Dirty")}</button>
-                        <button class="filter-pill pill-occupied" data-filter="Occupied">🟣 ${__("Occupied")}</button>
-                        <button class="filter-pill pill-ooo" data-filter="Out of Order">⚪ ${__("Out of Order")}</button>
+                        <button class="filter-pill" data-filter="Vacant Clean">🟢 ${__("Vacant Clean")} <span id="cnt-clean" class="badge">0</span></button>
+                        <button class="filter-pill" data-filter="Occupied">🟣 ${__("Occupied")} <span id="cnt-occ" class="badge">0</span></button>
+                        <button class="filter-pill" data-filter="Vacant Dirty">🟡 ${__("Vacant Dirty")} <span id="cnt-dirty" class="badge">0</span></button>
+                        <button class="filter-pill" data-filter="Out of Order">⚪ ${__("Out of Order")} <span id="cnt-ooo" class="badge">0</span></button>
+                    </div>
+                    <div class="search-box-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="dash-search-input" id="room-search-input" placeholder="${__("Search Room #, Guest, Phone...")}">
                     </div>
                 </div>
 
@@ -98,20 +80,24 @@ class HotelDashboard {
 
                 <!-- Operations Tabs -->
                 <div class="dash-tabs-container">
-                    <div class="dash-tabs">
-                        <div class="dash-tab active" data-tab="arrivals">
-                            🛬 ${__("Today's Arrivals")} <span class="tab-badge" id="badge-arrivals">0</span>
+                    <div class="dash-tabs-nav">
+                        <div class="dash-tab-btn active" data-tab="arrivals">
+                            🛬 ${__("Today & Upcoming Arrivals")} <span class="dash-tab-count" id="badge-arrivals">0</span>
                         </div>
-                        <div class="dash-tab" data-tab="departures">
-                            🛫 ${__("Today's Departures")} <span class="tab-badge" id="badge-departures">0</span>
+                        <div class="dash-tab-btn" data-tab="departures">
+                            🛫 ${__("Today's Departures")} <span class="dash-tab-count" id="badge-departures">0</span>
                         </div>
-                        <div class="dash-tab" data-tab="housekeeping">
-                            🧹 ${__("Housekeeping Queue")} <span class="tab-badge" id="badge-hk">0</span>
+                        <div class="dash-tab-btn" data-tab="inhouse">
+                            👥 ${__("In-House Guests")} <span class="dash-tab-count" id="badge-inhouse">0</span>
+                        </div>
+                        <div class="dash-tab-btn" data-tab="housekeeping">
+                            🧹 ${__("Housekeeping Queue")} <span class="dash-tab-count" id="badge-hk">0</span>
                         </div>
                     </div>
-                    <div class="tab-pane active" id="pane-arrivals"></div>
-                    <div class="tab-pane" id="pane-departures"></div>
-                    <div class="tab-pane" id="pane-housekeeping"></div>
+                    <div class="dash-tab-content active" id="pane-arrivals"></div>
+                    <div class="dash-tab-content" id="pane-departures"></div>
+                    <div class="dash-tab-content" id="pane-inhouse"></div>
+                    <div class="dash-tab-content" id="pane-housekeeping"></div>
                 </div>
             </div>
         `).appendTo(this.page.main);
@@ -120,7 +106,28 @@ class HotelDashboard {
     }
 
     bind_events() {
-        // Filter pills click
+        // Quick Walk-In Button
+        this.$wrapper.on("click", "#btn-quick-walkin", () => {
+            this.open_walkin_checkin_dialog();
+        });
+
+        // New Reservation Button
+        this.$wrapper.on("click", "#btn-new-reservation", () => {
+            this.open_new_reservation_dialog();
+        });
+
+        // Refresh Data Button
+        this.$wrapper.on("click", "#btn-refresh-data", () => {
+            this.load_data();
+        });
+
+        // Live Search Input
+        this.$wrapper.on("input", "#room-search-input", (e) => {
+            this.search_query = $(e.target).val().toLowerCase().trim();
+            this.render_rooms();
+        });
+
+        // Filter Pills
         this.$wrapper.on("click", ".filter-pill", (e) => {
             this.$wrapper.find(".filter-pill").removeClass("active");
             $(e.currentTarget).addClass("active");
@@ -128,46 +135,49 @@ class HotelDashboard {
             this.render_rooms();
         });
 
-        // Tabs switch
-        this.$wrapper.on("click", ".dash-tab", (e) => {
+        // Tab Switching
+        this.$wrapper.on("click", ".dash-tab-btn", (e) => {
             let tab = $(e.currentTarget).data("tab");
-            this.$wrapper.find(".dash-tab").removeClass("active");
-            this.$wrapper.find(".tab-pane").removeClass("active");
+            this.$wrapper.find(".dash-tab-btn").removeClass("active");
+            this.$wrapper.find(".dash-tab-content").removeClass("active");
             $(e.currentTarget).addClass("active");
             this.$wrapper.find(`#pane-${tab}`).addClass("active");
         });
 
-        // 1-Click Clean Room button on cards
-        this.$wrapper.on("click", ".btn-mark-clean", (e) => {
-            e.stopPropagation();
-            let room = $(e.currentTarget).data("room");
-            this.mark_clean(room);
-        });
-
-        // 1-Click Check-In button on clean cards
-        this.$wrapper.on("click", ".btn-card-checkin", (e) => {
-            e.stopPropagation();
-            let room = $(e.currentTarget).data("room");
-            let rate = $(e.currentTarget).data("rate");
-            this.open_quick_checkin_dialog(room, rate);
-        });
-
-        // Room card click (smart interaction based on room state)
+        // Room Card Click
         this.$wrapper.on("click", ".room-card", (e) => {
             let room = $(e.currentTarget).data("room");
             let status = $(e.currentTarget).data("status");
             let stay = $(e.currentTarget).data("stay");
 
             if (status === "Vacant Clean") {
-                this.open_quick_checkin_dialog(room);
+                this.open_walkin_checkin_dialog(room);
             } else if (status === "Occupied") {
                 this.open_inhouse_dialog(room, stay);
             } else if (status === "Vacant Dirty") {
-                frappe.confirm(__("Room {0} is dirty. Mark it Clean now?", [room]), () => {
+                frappe.confirm(__("Room {0} is dirty. Mark clean and ready for guests?", [room]), () => {
                     this.mark_clean(room);
                 });
             } else {
                 frappe.set_route("Form", "Hotel Room", room);
+            }
+        });
+
+        // Stop propagation for action buttons inside room cards
+        this.$wrapper.on("click", ".card-btn", (e) => {
+            e.stopPropagation();
+            let action = $(e.currentTarget).data("action");
+            let room = $(e.currentTarget).data("room");
+            let stay = $(e.currentTarget).data("stay");
+
+            if (action === "checkin") {
+                this.open_walkin_checkin_dialog(room);
+            } else if (action === "clean") {
+                this.mark_clean(room);
+            } else if (action === "charge") {
+                this.open_add_charge_dialog(stay, room);
+            } else if (action === "checkout") {
+                this.open_checkout_dialog(stay, room);
             }
         });
     }
@@ -183,6 +193,7 @@ class HotelDashboard {
                     this.render_rooms();
                     this.render_arrivals();
                     this.render_departures();
+                    this.render_inhouse();
                     this.render_housekeeping();
                 }
             }
@@ -202,22 +213,22 @@ class HotelDashboard {
             <div class="kpi-card kpi-clean">
                 <div class="kpi-title">${__("Vacant Clean")}</div>
                 <div class="kpi-value">${k.vacant_clean}</div>
-                <div class="kpi-sub">${__("Ready for Guests")}</div>
-            </div>
-            <div class="kpi-card kpi-dirty">
-                <div class="kpi-title">${__("Vacant Dirty")}</div>
-                <div class="kpi-value">${k.vacant_dirty}</div>
-                <div class="kpi-sub">${__("Needs Cleaning")}</div>
+                <div class="kpi-sub">${__("Ready to Sell")}</div>
             </div>
             <div class="kpi-card kpi-occupied">
                 <div class="kpi-title">${__("In-House Guests")}</div>
                 <div class="kpi-value">${k.occupied}</div>
-                <div class="kpi-sub">${__("Active Stays")}</div>
+                <div class="kpi-sub">${k.inhouse_count} ${__("Active Stays")}</div>
+            </div>
+            <div class="kpi-card kpi-dirty">
+                <div class="kpi-title">${__("Vacant Dirty")}</div>
+                <div class="kpi-value">${k.vacant_dirty}</div>
+                <div class="kpi-sub">${__("Awaiting Cleaning")}</div>
             </div>
             <div class="kpi-card kpi-revenue">
                 <div class="kpi-title">${__("Today's Revenue")}</div>
                 <div class="kpi-value">${format_currency(k.today_revenue, currency)}</div>
-                <div class="kpi-sub">ADR: ${format_currency(k.adr, currency)}</div>
+                <div class="kpi-sub">ADR: ${format_currency(k.adr, currency)} · RevPAR: ${format_currency(k.revpar, currency)}</div>
             </div>
             <div class="kpi-card kpi-dues">
                 <div class="kpi-title">${__("Pending Dues")}</div>
@@ -227,15 +238,36 @@ class HotelDashboard {
         `;
         this.$wrapper.find("#kpi-cards").html(html);
 
+        // Update counts
+        this.$wrapper.find("#cnt-clean").text(k.vacant_clean);
+        this.$wrapper.find("#cnt-occ").text(k.occupied);
+        this.$wrapper.find("#cnt-dirty").text(k.vacant_dirty);
+        this.$wrapper.find("#cnt-ooo").text(k.out_of_order);
+
         this.$wrapper.find("#badge-arrivals").text(k.arrivals_count);
         this.$wrapper.find("#badge-departures").text(k.departures_count);
+        this.$wrapper.find("#badge-inhouse").text(k.inhouse_count);
         this.$wrapper.find("#badge-hk").text(k.hk_pending_count);
     }
 
     render_rooms() {
         let rooms = this.data.rooms || [];
+
+        // Apply Status Filter
         if (this.active_filter !== "All") {
             rooms = rooms.filter(r => r.status === this.active_filter);
+        }
+
+        // Apply Search Query
+        if (this.search_query) {
+            let q = this.search_query;
+            rooms = rooms.filter(r => {
+                let rNum = (r.room_number || "").toLowerCase();
+                let gName = (r.guest_name || "").toLowerCase();
+                let gPhone = (r.guest_phone || "").toLowerCase();
+                let rType = (r.room_type || "").toLowerCase();
+                return rNum.includes(q) || gName.includes(q) || gPhone.includes(q) || rType.includes(q);
+            });
         }
 
         let html = "";
@@ -256,22 +288,45 @@ class HotelDashboard {
                             <span class="room-badge ${badge_class}">${r.status}</span>
                         </div>
                         <div class="room-type">${r.room_type} · Floor ${r.floor}</div>
-                        ${r.guest_name ? `
-                            <div class="room-guest">👤 ${frappe.utils.escape_html(r.guest_name)}</div>
-                            <div class="room-dates">Checkout: <strong>${r.expected_checkout || 'N/A'}</strong></div>
-                            ${r.folio_balance > 0 ? `<div class="room-folio-bal">Due: ${format_currency(r.folio_balance, currency)}</div>` : '<div class="text-success text-xs font-bold">✓ Settled</div>'}
+
+                        ${r.status === 'Occupied' ? `
+                            <div class="room-guest-info">
+                                <div class="room-guest-name">👤 ${frappe.utils.escape_html(r.guest_name || 'In-House')}</div>
+                                <div class="room-stay-details">
+                                    <span>${r.stay_duration || '1 Night'}</span>
+                                    <span>${r.departure_status ? `<span class="pill-alert">${r.departure_status}</span>` : ''}</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    ${r.folio_balance > 0 ? 
+                                        `<span class="room-folio-pill pill-due">Due: ${format_currency(r.folio_balance, currency)}</span>` : 
+                                        `<span class="room-folio-pill pill-settled">✓ Paid</span>`
+                                    }
+                                    ${r.is_cleaning_requested ? `<span title="Morning cleaning requested" style="font-size:14px;">🧹</span>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${r.status === 'Vacant Clean' ? `
+                            <div style="font-size: 11px; color: #10b981; font-weight: 600; margin-top: 6px;">✨ Ready for Guest</div>
+                        ` : ''}
+
+                        ${r.status === 'Vacant Dirty' ? `
+                            <div style="font-size: 11px; color: #b45309; font-weight: 600; margin-top: 6px;">🧹 Needs Turnover Cleaning</div>
                         ` : ''}
                     </div>
 
-                    <div class="room-actions">
+                    <div class="room-card-actions">
                         ${r.status === 'Vacant Clean' ? `
-                            <button class="room-btn-sm btn-checkin btn-card-checkin" data-room="${r.room}">⚡ ${__("Check-In")}</button>
+                            <button class="card-btn btn-card-checkin" data-action="checkin" data-room="${r.room}">⚡ ${__("Check-In")}</button>
                         ` : ''}
+
                         ${r.status === 'Vacant Dirty' ? `
-                            <button class="room-btn-sm btn-clean btn-mark-clean" data-room="${r.room}">✓ ${__("Mark Clean")}</button>
+                            <button class="card-btn btn-card-clean" data-action="clean" data-room="${r.room}">✓ ${__("Mark Clean")}</button>
                         ` : ''}
-                        ${r.status === 'Occupied' && r.folio_name ? `
-                            <button class="room-btn-sm btn-folio" onclick="event.stopPropagation(); frappe.set_route('Form', 'Guest Folio', '${r.folio_name}')">🧾 ${__("Folio")}</button>
+
+                        ${r.status === 'Occupied' ? `
+                            <button class="card-btn btn-card-charge" data-action="charge" data-stay="${r.stay_name}" data-room="${r.room}">➕ ${__("Charge")}</button>
+                            <button class="card-btn btn-card-checkout" data-action="checkout" data-stay="${r.stay_name}" data-room="${r.room}">🚪 ${__("Out")}</button>
                         ` : ''}
                     </div>
                 </div>
@@ -279,273 +334,123 @@ class HotelDashboard {
         });
 
         if (rooms.length === 0) {
-            html = `<div class="text-muted p-4 col-span-full">${__("No rooms match this filter.")}</div>`;
+            html = `<div class="text-muted p-4 col-span-full" style="grid-column: 1 / -1; text-align: center; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1;">${__("No rooms match the selected criteria.")}</div>`;
         }
 
         this.$wrapper.find("#room-matrix").html(html);
     }
 
-    render_arrivals() {
-        let arrivals = this.data.arrivals || [];
-        if (arrivals.length === 0) {
-            this.$wrapper.find("#pane-arrivals").html(`<div class="text-muted p-3">${__("No expected arrivals for this date.")}</div>`);
-            return;
+    // ----------------------------------------------------------------------
+    // Modal: Quick Walk-In Check-In (Clean Room)
+    // ----------------------------------------------------------------------
+    open_walkin_checkin_dialog(prefill_room) {
+        let clean_rooms = (this.data.masters && this.data.masters.clean_rooms) || [];
+        let room_options = clean_rooms.map(x => ({ label: `Room ${x.room_number} (${x.room_type})`, value: x.room }));
+        let payment_modes = (this.data.masters && this.data.masters.payment_modes) || ["Cash", "Bank", "UPI", "Credit Card"];
+
+        let default_room = prefill_room || (clean_rooms[0] ? clean_rooms[0].room : "");
+        let sel_room_info = clean_rooms.find(x => x.room === default_room);
+        let default_rate = 3500;
+        if (sel_room_info && this.data.masters && this.data.masters.room_types) {
+            let rt = this.data.masters.room_types.find(t => t.name === sel_room_info.room_type);
+            if (rt) default_rate = rt.base_rate;
         }
 
-        let html = `
-            <table class="dash-table">
-                <thead>
-                    <tr>
-                        <th>${__("Guest Name")}</th>
-                        <th>${__("Room Type")}</th>
-                        <th>${__("Assigned Room")}</th>
-                        <th>${__("Nights")}</th>
-                        <th>${__("Est. Total")}</th>
-                        <th>${__("Advance Paid")}</th>
-                        <th>${__("Action")}</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        arrivals.forEach(a => {
-            html += `
-                <tr>
-                    <td><strong>${frappe.utils.escape_html(a.guest_name)}</strong><br><small class="text-muted">${a.contact_phone || ''}</small></td>
-                    <td>${a.room_type}</td>
-                    <td><span class="badge ${a.assigned_room ? 'badge-primary' : 'badge-warning'}">${a.assigned_room || __('Not Assigned')}</span></td>
-                    <td>${a.nights}</td>
-                    <td>${format_currency(a.estimated_total)}</td>
-                    <td><span class="badge ${a.advance_paid > 0 ? 'badge-success' : 'badge-secondary'}">${format_currency(a.advance_paid)}</span></td>
-                    <td>
-                        <button class="btn btn-xs btn-primary btn-arrival-checkin" data-res="${a.name}" data-room="${a.assigned_room || ''}">
-                            ⚡ ${__("Check-in")}
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        this.$wrapper.find("#pane-arrivals").html(html);
-
-        // Bind arrivals 1-click checkin
-        this.$wrapper.find(".btn-arrival-checkin").on("click", (e) => {
-            let res = $(e.currentTarget).data("res");
-            let room = $(e.currentTarget).data("room");
-            this.checkin_arrival(res, room);
-        });
-    }
-
-    render_departures() {
-        let departures = this.data.departures || [];
-        if (departures.length === 0) {
-            this.$wrapper.find("#pane-departures").html(`<div class="text-muted p-3">${__("No scheduled departures for this date.")}</div>`);
-            return;
-        }
-
-        let html = `
-            <table class="dash-table">
-                <thead>
-                    <tr>
-                        <th>${__("Guest Name")}</th>
-                        <th>${__("Room")}</th>
-                        <th>${__("Check-in Date")}</th>
-                        <th>${__("Folio Balance")}</th>
-                        <th>${__("Action")}</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        departures.forEach(d => {
-            html += `
-                <tr>
-                    <td><strong>${frappe.utils.escape_html(d.guest_name)}</strong></td>
-                    <td><span class="badge badge-primary font-bold">Room ${d.room}</span></td>
-                    <td>${d.checkin_date}</td>
-                    <td><strong class="${d.balance > 0 ? 'text-danger' : 'text-success'}">${format_currency(d.balance)}</strong></td>
-                    <td>
-                        <button class="btn btn-xs btn-danger btn-departure-checkout" data-stay="${d.name}" data-room="${d.room}" data-balance="${d.balance}" data-folio="${d.folio || ''}">
-                            🚪 ${__("Checkout")}
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        this.$wrapper.find("#pane-departures").html(html);
-
-        this.$wrapper.find(".btn-departure-checkout").on("click", (e) => {
-            let stay = $(e.currentTarget).data("stay");
-            let room = $(e.currentTarget).data("room");
-            let balance = parseFloat($(e.currentTarget).data("balance")) || 0;
-            let folio = $(e.currentTarget).data("folio");
-
-            if (balance > 0) {
-                frappe.msgprint({
-                    title: __("Unsettled Dues"),
-                    indicator: "orange",
-                    message: __("Guest in Room {0} has an outstanding balance of {1}. Please settle the folio first.", [room, format_currency(balance)]),
-                    primary_action: {
-                        label: __("Open Folio"),
-                        action: () => frappe.set_route("Form", "Guest Folio", folio)
-                    }
-                });
-            } else {
-                frappe.confirm(__("Checkout Room {0}?", [room]), () => {
-                    this.process_checkout(stay);
-                });
-            }
-        });
-    }
-
-    render_housekeeping() {
-        let tasks = this.data.housekeeping || [];
-        if (tasks.length === 0) {
-            this.$wrapper.find("#pane-housekeeping").html(`<div class="text-muted p-3">${__("All rooms are clean! No pending cleaning tasks.")}</div>`);
-            return;
-        }
-
-        let html = `
-            <table class="dash-table">
-                <thead>
-                    <tr>
-                        <th>${__("Room")}</th>
-                        <th>${__("Task Type")}</th>
-                        <th>${__("Priority")}</th>
-                        <th>${__("Assigned Staff")}</th>
-                        <th>${__("Action")}</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        tasks.forEach(t => {
-            html += `
-                <tr>
-                    <td><strong>Room ${t.room}</strong></td>
-                    <td>${t.task_type}</td>
-                    <td><span class="badge ${t.priority === 'High' || t.priority === 'Urgent' ? 'badge-danger' : 'badge-warning'}">${t.priority}</span></td>
-                    <td>${t.assigned_to || __('Unassigned')}</td>
-                    <td>
-                        <button class="btn btn-xs btn-success btn-mark-clean" data-room="${t.room}">
-                            ✓ ${__("Mark Clean")}
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        this.$wrapper.find("#pane-housekeeping").html(html);
-    }
-
-    // Modal: 1-Click Walk-In Check-In
-    open_quick_checkin_dialog(preselected_room = null, default_rate = null) {
         let d = new frappe.ui.Dialog({
             title: __("⚡ Quick Walk-In Check-In"),
             fields: [
                 {
-                    label: __("Guest Name"),
-                    fieldname: "guest_name",
-                    fieldtype: "Data",
-                    reqd: 1,
-                    description: __("Type customer name. Will auto-create if new.")
-                },
-                {
-                    label: __("Mobile Number"),
-                    fieldname: "phone",
-                    fieldtype: "Data"
-                },
-                {
-                    fieldtype: "Column Break"
-                },
-                {
-                    label: __("Room"),
+                    label: __("Select Clean Room"),
                     fieldname: "room",
-                    fieldtype: "Link",
-                    options: "Hotel Room",
-                    default: preselected_room,
+                    fieldtype: "Select",
+                    options: room_options,
+                    default: default_room,
                     reqd: 1,
-                    get_query: () => {
-                        return {
-                            filters: {
-                                status: "Vacant Clean",
-                                is_active: 1
+                    onchange: () => {
+                        let rVal = d.get_value("room");
+                        let rObj = clean_rooms.find(x => x.room === rVal);
+                        if (rObj && this.data.masters && this.data.masters.room_types) {
+                            let rt = this.data.masters.room_types.find(t => t.name === rObj.room_type);
+                            if (rt) {
+                                d.set_value("room_rate", rt.base_rate);
+                                d.set_value("room_type", rObj.room_type);
                             }
-                        };
-                    },
-                    change: () => {
-                        let selected_room = d.get_value("room");
-                        if (selected_room) {
-                            frappe.db.get_value("Hotel Room", selected_room, "room_type", (r) => {
-                                if (r && r.room_type) {
-                                    frappe.db.get_value("Hotel Room Type", r.room_type, "base_rate", (rt) => {
-                                        if (rt && rt.base_rate) {
-                                            d.set_value("room_rate", rt.base_rate);
-                                        }
-                                    });
-                                }
-                            });
                         }
                     }
                 },
                 {
-                    label: __("Daily Room Rate"),
+                    label: __("Daily Room Rate (₹)"),
                     fieldname: "room_rate",
                     fieldtype: "Currency",
                     default: default_rate,
                     reqd: 1
                 },
-                {
-                    fieldtype: "Section Break",
-                    label: __("Stay Duration & Advance")
-                },
+                { fieldtype: "Column Break" },
                 {
                     label: __("Check-In Date"),
                     fieldname: "checkin_date",
                     fieldtype: "Date",
-                    default: this.selected_date,
+                    default: frappe.datetime.get_today(),
                     reqd: 1
-                },
-                {
-                    fieldtype: "Column Break"
                 },
                 {
                     label: __("Expected Checkout Date"),
                     fieldname: "expected_checkout_date",
                     fieldtype: "Date",
-                    default: frappe.datetime.add_days(this.selected_date, 1),
+                    default: frappe.datetime.add_days(frappe.datetime.get_today(), 1),
                     reqd: 1
                 },
+                { fieldtype: "Section Break", label: __("Guest Details") },
                 {
-                    fieldtype: "Section Break"
+                    label: __("Guest Full Name"),
+                    fieldname: "guest_name",
+                    fieldtype: "Data",
+                    reqd: 1,
+                    placeholder: "e.g. John Doe"
                 },
                 {
-                    label: __("Advance Payment (₹)"),
+                    label: __("Mobile Number"),
+                    fieldname: "phone",
+                    fieldtype: "Data",
+                    reqd: 1,
+                    placeholder: "e.g. 9876543210"
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("ID Proof Type"),
+                    fieldname: "id_proof_type",
+                    fieldtype: "Select",
+                    options: ["Aadhaar", "Passport", "Driving License", "Voter ID", "PAN", "Other"],
+                    default: "Aadhaar"
+                },
+                {
+                    label: __("ID Proof Number"),
+                    fieldname: "id_proof_number",
+                    fieldtype: "Data",
+                    placeholder: "e.g. 1234 5678 9012"
+                },
+                { fieldtype: "Section Break", label: __("Advance Payment (Optional)") },
+                {
+                    label: __("Advance Amount Paid (₹)"),
                     fieldname: "advance_amount",
                     fieldtype: "Currency",
                     default: 0
                 },
                 {
-                    fieldtype: "Column Break"
-                },
-                {
                     label: __("Payment Mode"),
                     fieldname: "mode_of_payment",
-                    fieldtype: "Link",
-                    options: "Mode of Payment"
+                    fieldtype: "Select",
+                    options: payment_modes,
+                    default: payment_modes[0] || "Cash"
                 }
             ],
             primary_action_label: __("Complete Check-In"),
-            primary_action: (values) => {
+            primary_action: (vals) => {
                 frappe.call({
                     method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.quick_walkin_checkin",
-                    args: values,
+                    args: vals,
                     freeze: true,
-                    freeze_message: __("Checking in guest and setting up folio..."),
+                    freeze_message: __("Checking in guest & locking room..."),
                     callback: (r) => {
                         if (r.message && r.message.status === "success") {
                             d.hide();
@@ -559,27 +464,15 @@ class HotelDashboard {
                 });
             }
         });
-
-        // Trigger rate auto-fill if preselected room exists
-        if (preselected_room && !default_rate) {
-            frappe.db.get_value("Hotel Room", preselected_room, "room_type", (r) => {
-                if (r && r.room_type) {
-                    frappe.db.get_value("Hotel Room Type", r.room_type, "base_rate", (rt) => {
-                        if (rt && rt.base_rate) {
-                            d.set_value("room_rate", rt.base_rate);
-                        }
-                    });
-                }
-            });
-        }
-
         d.show();
     }
 
-    // Modal: In-House Room Details & Actions
+    // ----------------------------------------------------------------------
+    // Modal: In-House Guest Management & Living Experience
+    // ----------------------------------------------------------------------
     open_inhouse_dialog(room, stay) {
-        let r_info = (this.data.rooms || []).find(x => x.room === room);
-        if (!r_info) return;
+        let r_info = (this.data.rooms || []).find(x => x.room === room) || {};
+        let currency = frappe.defaults.get_default("currency") || "₹";
 
         let d = new frappe.ui.Dialog({
             title: __("Room {0} · In-House Guest", [room]),
@@ -587,16 +480,62 @@ class HotelDashboard {
                 {
                     fieldtype: "HTML",
                     options: `
-                        <div style="padding: 10px 0; font-size: 14px; line-height: 1.8;">
-                            <div><strong>Guest Name:</strong> ${frappe.utils.escape_html(r_info.guest_name || 'N/A')}</div>
-                            <div><strong>Room Type:</strong> ${r_info.room_type} (Floor ${r_info.floor})</div>
-                            <div><strong>Check-In:</strong> ${r_info.checkin_date || 'N/A'}</div>
-                            <div><strong>Expected Checkout:</strong> ${r_info.expected_checkout || 'N/A'}</div>
-                            <div style="margin-top: 8px; font-size: 16px;">
-                                <strong>Folio Balance:</strong> 
-                                <span class="${r_info.folio_balance > 0 ? 'text-danger font-bold' : 'text-success font-bold'}">
-                                    ${format_currency(r_info.folio_balance)}
+                        <div class="inhouse-modal-header">
+                            <div class="inhouse-header-guest">
+                                <h3>👤 ${frappe.utils.escape_html(r_info.guest_name || 'In-House Guest')}</h3>
+                                <p>📱 ${r_info.guest_phone || 'N/A'} · Stay #${stay}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 800;">Room ${r_info.room_number}</div>
+                                <div style="font-size: 12px; opacity: 0.9;">${r_info.room_type} (Floor ${r_info.floor})</div>
+                            </div>
+                        </div>
+
+                        <div class="financial-summary-card">
+                            <div class="financial-row">
+                                <span class="text-muted">Check-In Date:</span>
+                                <strong>${r_info.checkin_date || 'N/A'}</strong>
+                            </div>
+                            <div class="financial-row">
+                                <span class="text-muted">Expected Checkout:</span>
+                                <strong>${r_info.expected_checkout || 'N/A'} (${r_info.departure_status || 'Active'})</strong>
+                            </div>
+                            <div class="financial-row" style="margin-top: 6px;">
+                                <span class="text-muted">Total Billed Charges:</span>
+                                <span>${format_currency(r_info.total_charges || 0, currency)}</span>
+                            </div>
+                            <div class="financial-row">
+                                <span class="text-muted">Total Paid / Advance:</span>
+                                <span class="text-success font-bold">${format_currency(r_info.total_paid || 0, currency)}</span>
+                            </div>
+                            <div class="financial-balance-banner">
+                                <span>Net Outstanding Due:</span>
+                                <span class="${r_info.folio_balance > 0 ? 'text-danger' : 'text-success'}">
+                                    ${format_currency(r_info.folio_balance || 0, currency)}
                                 </span>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions-grid">
+                            <div class="modal-act-btn act-charge" id="btn-modal-add-charge">
+                                <span style="font-size: 18px;">➕</span>
+                                <span>${__("Add Charge")}</span>
+                            </div>
+                            <div class="modal-act-btn act-payment" id="btn-modal-collect-pay">
+                                <span style="font-size: 18px;">💵</span>
+                                <span>${__("Collect Payment")}</span>
+                            </div>
+                            <div class="modal-act-btn act-cleaning" id="btn-modal-request-clean">
+                                <span style="font-size: 18px;">🧹</span>
+                                <span>${__("Request Cleaning")}</span>
+                            </div>
+                            <div class="modal-act-btn act-transfer" id="btn-modal-move-room">
+                                <span style="font-size: 18px;">🔄</span>
+                                <span>${__("Change Room")}</span>
+                            </div>
+                            <div class="modal-act-btn act-checkout" id="btn-modal-checkout">
+                                <span style="font-size: 18px;">🚪</span>
+                                <span>${__("Checkout")}</span>
                             </div>
                         </div>
                     `
@@ -604,73 +543,372 @@ class HotelDashboard {
             ]
         });
 
-        // Add action buttons inside dialog
-        if (r_info.folio_name) {
-            d.add_custom_action(__("🧾 View Folio"), () => {
-                d.hide();
-                frappe.set_route("Form", "Guest Folio", r_info.folio_name);
-            });
-        }
+        d.show();
 
-        d.add_custom_action(__("🔄 Change Room"), () => {
+        // Bind In-House Modal Actions
+        d.$wrapper.on("click", "#btn-modal-add-charge", () => {
+            d.hide();
+            this.open_add_charge_dialog(stay, room);
+        });
+
+        d.$wrapper.on("click", "#btn-modal-collect-pay", () => {
+            d.hide();
+            this.open_collect_payment_dialog(stay, room, r_info.folio_balance);
+        });
+
+        d.$wrapper.on("click", "#btn-modal-request-clean", () => {
+            d.hide();
+            this.request_cleaning(room, stay);
+        });
+
+        d.$wrapper.on("click", "#btn-modal-move-room", () => {
             d.hide();
             this.open_room_change_dialog(stay, room);
         });
 
-        d.set_primary_action(__("🚪 Checkout"), () => {
-            if (r_info.folio_balance > 0) {
-                frappe.msgprint({
-                    title: __("Outstanding Balance"),
-                    indicator: "orange",
-                    message: __("This guest has an unpaid balance of {0}. Please settle the folio first.", [format_currency(r_info.folio_balance)]),
-                    primary_action: {
-                        label: __("Open Folio"),
-                        action: () => {
+        d.$wrapper.on("click", "#btn-modal-checkout", () => {
+            d.hide();
+            this.open_checkout_dialog(stay, room, r_info.folio_balance);
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // Modal: Add Extra Service Charge (Food, Laundry, etc.)
+    // ----------------------------------------------------------------------
+    open_add_charge_dialog(stay, room) {
+        let charge_types = (this.data.masters && this.data.masters.charge_types) || [
+            "Restaurant / F&B", "Laundry", "Room Service", "Minibar", "Extra Bed", "Other"
+        ];
+
+        let d = new frappe.ui.Dialog({
+            title: __("➕ Add Extra Charge · Room {0}", [room]),
+            fields: [
+                {
+                    label: __("Charge Type"),
+                    fieldname: "charge_type",
+                    fieldtype: "Select",
+                    options: charge_types,
+                    default: "Restaurant / F&B",
+                    reqd: 1
+                },
+                {
+                    label: __("Amount (₹)"),
+                    fieldname: "amount",
+                    fieldtype: "Currency",
+                    reqd: 1
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Quantity"),
+                    fieldname: "qty",
+                    fieldtype: "Float",
+                    default: 1,
+                    reqd: 1
+                },
+                {
+                    label: __("Description"),
+                    fieldname: "description",
+                    fieldtype: "Data",
+                    placeholder: "e.g. Dinner Buffet / 2 Shirts Laundry"
+                }
+            ],
+            primary_action_label: __("Post Charge to Folio"),
+            primary_action: (vals) => {
+                vals.stay = stay;
+                frappe.call({
+                    method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.add_folio_charge",
+                    args: vals,
+                    freeze: true,
+                    callback: (r) => {
+                        if (r.message && r.message.status === "success") {
                             d.hide();
-                            frappe.set_route("Form", "Guest Folio", r_info.folio_name);
+                            frappe.show_alert({
+                                message: __("Charge added! New Folio Balance: {0}", [format_currency(r.message.balance_due)]),
+                                indicator: "green"
+                            });
+                            this.load_data();
                         }
                     }
                 });
-            } else {
-                frappe.confirm(__("Process Checkout for Room {0}?", [room]), () => {
-                    d.hide();
-                    this.process_checkout(stay);
-                });
             }
         });
-
         d.show();
     }
 
-    // Modal: Room Change
+    // ----------------------------------------------------------------------
+    // Modal: Collect Payment
+    // ----------------------------------------------------------------------
+    open_collect_payment_dialog(stay, room, current_balance) {
+        let payment_modes = (this.data.masters && this.data.masters.payment_modes) || ["Cash", "Bank", "UPI", "Credit Card"];
+
+        let d = new frappe.ui.Dialog({
+            title: __("💵 Collect Guest Payment · Room {0}", [room]),
+            fields: [
+                {
+                    label: __("Payment Amount (₹)"),
+                    fieldname: "amount",
+                    fieldtype: "Currency",
+                    default: current_balance > 0 ? current_balance : 0,
+                    reqd: 1
+                },
+                {
+                    label: __("Payment Mode"),
+                    fieldname: "mode_of_payment",
+                    fieldtype: "Select",
+                    options: payment_modes,
+                    default: payment_modes[0],
+                    reqd: 1
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Reference / Transaction ID"),
+                    fieldname: "reference_no",
+                    fieldtype: "Data",
+                    placeholder: "e.g. UPI Ref / Card Last 4 digits"
+                }
+            ],
+            primary_action_label: __("Record Payment Entry"),
+            primary_action: (vals) => {
+                vals.stay = stay;
+                frappe.call({
+                    method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.collect_stay_payment",
+                    args: vals,
+                    freeze: true,
+                    freeze_message: __("Recording payment & updating folio..."),
+                    callback: (r) => {
+                        if (r.message && r.message.status === "success") {
+                            d.hide();
+                            frappe.show_alert({
+                                message: __("Payment of {0} recorded! Remaining Due: {1}", [format_currency(r.message.amount_paid), format_currency(r.message.balance_due)]),
+                                indicator: "green"
+                            });
+                            this.load_data();
+                        }
+                    }
+                });
+            }
+        });
+        d.show();
+    }
+
+    // ----------------------------------------------------------------------
+    // Modal: Advance Reservation (Future Dates)
+    // ----------------------------------------------------------------------
+    open_new_reservation_dialog() {
+        let room_types = (this.data.masters && this.data.masters.room_types) || [];
+        let rt_options = room_types.map(x => x.name);
+        let payment_modes = (this.data.masters && this.data.masters.payment_modes) || ["Cash", "Bank", "UPI"];
+
+        let d = new frappe.ui.Dialog({
+            title: __("📅 New Advance Reservation"),
+            fields: [
+                {
+                    label: __("Guest Name"),
+                    fieldname: "guest_name",
+                    fieldtype: "Data",
+                    reqd: 1,
+                    placeholder: "e.g. Alice Smith"
+                },
+                {
+                    label: __("Phone Number"),
+                    fieldname: "phone",
+                    fieldtype: "Data",
+                    reqd: 1,
+                    placeholder: "e.g. 9123456789"
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Email"),
+                    fieldname: "email",
+                    fieldtype: "Data",
+                    placeholder: "alice@example.com"
+                },
+                {
+                    label: __("Room Type"),
+                    fieldname: "room_type",
+                    fieldtype: "Select",
+                    options: rt_options,
+                    default: rt_options[0],
+                    reqd: 1,
+                    onchange: () => {
+                        let rtVal = d.get_value("room_type");
+                        let rtObj = room_types.find(x => x.name === rtVal);
+                        if (rtObj) d.set_value("room_rate", rtObj.base_rate);
+                    }
+                },
+                { fieldtype: "Section Break", label: __("Stay Dates & Pricing") },
+                {
+                    label: __("Arrival Date"),
+                    fieldname: "arrival_date",
+                    fieldtype: "Date",
+                    default: frappe.datetime.add_days(frappe.datetime.get_today(), 1),
+                    reqd: 1
+                },
+                {
+                    label: __("Departure Date"),
+                    fieldname: "departure_date",
+                    fieldtype: "Date",
+                    default: frappe.datetime.add_days(frappe.datetime.get_today(), 3),
+                    reqd: 1
+                },
+                { fieldtype: "Column Break" },
+                {
+                    label: __("Rate Per Night (₹)"),
+                    fieldname: "room_rate",
+                    fieldtype: "Currency",
+                    default: room_types[0] ? room_types[0].base_rate : 3500,
+                    reqd: 1
+                },
+                {
+                    label: __("Assign Room (Optional)"),
+                    fieldname: "assigned_room",
+                    fieldtype: "Link",
+                    options: "Hotel Room"
+                },
+                { fieldtype: "Section Break", label: __("Advance Deposit (Optional)") },
+                {
+                    label: __("Advance Deposit (₹)"),
+                    fieldname: "advance_amount",
+                    fieldtype: "Currency",
+                    default: 0
+                },
+                {
+                    label: __("Payment Mode"),
+                    fieldname: "mode_of_payment",
+                    fieldtype: "Select",
+                    options: payment_modes,
+                    default: payment_modes[0]
+                }
+            ],
+            primary_action_label: __("Confirm Booking"),
+            primary_action: (vals) => {
+                frappe.call({
+                    method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.quick_create_reservation",
+                    args: vals,
+                    freeze: true,
+                    freeze_message: __("Creating reservation..."),
+                    callback: (r) => {
+                        if (r.message && r.message.status === "success") {
+                            d.hide();
+                            frappe.show_alert({
+                                message: __("Reservation #{0} confirmed for {1}!", [r.message.reservation, r.message.guest]),
+                                indicator: "green"
+                            });
+                            this.load_data();
+                        }
+                    }
+                });
+            }
+        });
+        d.show();
+    }
+
+    // ----------------------------------------------------------------------
+    // Modal: 1-Click Checkout with Auto-Settlement
+    // ----------------------------------------------------------------------
+    open_checkout_dialog(stay, room, balance) {
+        let r_info = (this.data.rooms || []).find(x => x.room === room) || {};
+        let rem_balance = balance !== undefined ? balance : (r_info.folio_balance || 0);
+        let payment_modes = (this.data.masters && this.data.masters.payment_modes) || ["Cash", "Bank", "UPI", "Credit Card"];
+
+        if (rem_balance <= 0) {
+            frappe.confirm(__("Folio is settled. Proceed to check out Stay #{0} for Room {1}?", [stay, room]), () => {
+                frappe.call({
+                    method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.instant_checkout",
+                    args: { stay: stay },
+                    freeze: true,
+                    freeze_message: __("Processing checkout & generating Sales Invoice..."),
+                    callback: (r) => {
+                        frappe.show_alert({
+                            message: __("Room {0} checked out! Sales Invoice created.", [room]),
+                            indicator: "green"
+                        });
+                        this.load_data();
+                    }
+                });
+            });
+        } else {
+            // Balance remains: offer 1-click settlement & checkout
+            let d = new frappe.ui.Dialog({
+                title: __("🚪 Checkout & Settle Due Balance · Room {0}", [room]),
+                fields: [
+                    {
+                        fieldtype: "HTML",
+                        options: `
+                            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; color: #991b1b;">
+                                <strong>Pending Balance: ${format_currency(rem_balance)}</strong>
+                                <div style="font-size: 12px; margin-top: 3px;">Select a payment mode to collect this amount and complete checkout in one step.</div>
+                            </div>
+                        `
+                    },
+                    {
+                        label: __("Settlement Amount (₹)"),
+                        fieldname: "settle_balance",
+                        fieldtype: "Currency",
+                        default: rem_balance,
+                        read_only: 1
+                    },
+                    {
+                        label: __("Mode of Payment"),
+                        fieldname: "mode_of_payment",
+                        fieldtype: "Select",
+                        options: payment_modes,
+                        default: payment_modes[0],
+                        reqd: 1
+                    }
+                ],
+                primary_action_label: __("Settle & Complete Checkout"),
+                primary_action: (vals) => {
+                    frappe.call({
+                        method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.instant_checkout",
+                        args: {
+                            stay: stay,
+                            settle_balance: vals.settle_balance,
+                            mode_of_payment: vals.mode_of_payment
+                        },
+                        freeze: true,
+                        freeze_message: __("Recording payment & generating final invoice..."),
+                        callback: (r) => {
+                            d.hide();
+                            frappe.show_alert({
+                                message: __("Checkout completed! Invoice generated & Room {0} marked for cleaning.", [room]),
+                                indicator: "green"
+                            });
+                            this.load_data();
+                        }
+                    });
+                }
+            });
+            d.show();
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // Modal: Mid-Stay Room Move
+    // ----------------------------------------------------------------------
     open_room_change_dialog(stay, current_room) {
+        let clean_rooms = (this.data.masters && this.data.masters.clean_rooms) || [];
+        let room_options = clean_rooms.filter(x => x.room !== current_room).map(x => ({ label: `Room ${x.room_number} (${x.room_type})`, value: x.room }));
+
         let d = new frappe.ui.Dialog({
             title: __("🔄 Move Guest from Room {0}", [current_room]),
             fields: [
                 {
                     label: __("Target Clean Room"),
                     fieldname: "new_room",
-                    fieldtype: "Link",
-                    options: "Hotel Room",
-                    reqd: 1,
-                    get_query: () => {
-                        return {
-                            filters: {
-                                status: "Vacant Clean",
-                                is_active: 1
-                            }
-                        };
-                    }
+                    fieldtype: "Select",
+                    options: room_options,
+                    reqd: 1
                 },
                 {
-                    label: __("Reason for Transfer"),
+                    label: __("Reason for Room Change"),
                     fieldname: "reason",
                     fieldtype: "Small Text",
                     default: "Guest Request",
                     reqd: 1
                 }
             ],
-            primary_action_label: __("Move Room"),
+            primary_action_label: __("Confirm Room Transfer"),
             primary_action: (vals) => {
                 frappe.call({
                     method: "hotel_pms.hotel_pms.doctype.hotel_stay.hotel_stay.move_room",
@@ -694,84 +932,347 @@ class HotelDashboard {
         d.show();
     }
 
-    // Check-in Arrival directly
-    checkin_arrival(res_name, assigned_room) {
-        if (!assigned_room) {
-            // Ask for room assignment
-            let d = new frappe.ui.Dialog({
-                title: __("Assign Room for Check-In"),
-                fields: [
-                    {
-                        label: __("Select Clean Room"),
-                        fieldname: "room",
-                        fieldtype: "Link",
-                        options: "Hotel Room",
-                        reqd: 1,
-                        get_query: () => {
-                            return {
-                                filters: {
-                                    status: "Vacant Clean",
-                                    is_active: 1
-                                }
-                            };
-                        }
-                    }
-                ],
-                primary_action_label: __("Check-In"),
-                primary_action: (vals) => {
-                    d.hide();
-                    this.execute_arrival_checkin(res_name, vals.room);
-                }
-            });
-            d.show();
-        } else {
-            frappe.confirm(__("Check-in reservation {0} into Room {1}?", [res_name, assigned_room]), () => {
-                this.execute_arrival_checkin(res_name, assigned_room);
-            });
-        }
-    }
-
-    execute_arrival_checkin(res_name, room) {
+    // ----------------------------------------------------------------------
+    // Request Daily Cleaning
+    // ----------------------------------------------------------------------
+    request_cleaning(room, stay) {
         frappe.call({
-            method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.checkin_reservation",
-            args: {
-                reservation: res_name,
-                room: room
-            },
+            method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.request_daily_cleaning",
+            args: { room: room, stay: stay },
             freeze: true,
-            freeze_message: __("Checking in reservation..."),
             callback: (r) => {
-                if (r.message) {
-                    frappe.show_alert({ message: __("Checked in successfully! Room {0} is now Occupied.", [room]), indicator: "green" });
+                if (r.message && r.message.status === "success") {
+                    frappe.show_alert({
+                        message: __("Daily cleaning scheduled for Room {0}!", [room]),
+                        indicator: "green"
+                    });
                     this.load_data();
+                } else if (r.message && r.message.message) {
+                    frappe.msgprint(r.message.message);
                 }
             }
         });
     }
 
-    // Process checkout helper
-    process_checkout(stay_name) {
-        frappe.call({
-            method: "hotel_pms.hotel_pms.doctype.hotel_stay.hotel_stay.process_checkout",
-            args: { stay: stay_name },
-            freeze: true,
-            freeze_message: __("Processing checkout & generating invoice..."),
-            callback: (r) => {
-                frappe.show_alert({ message: __("Checkout completed! Room marked for Housekeeping."), indicator: "green" });
-                this.load_data();
-            }
-        });
-    }
-
-    // Mark Clean helper
+    // ----------------------------------------------------------------------
+    // Mark Clean Helper
+    // ----------------------------------------------------------------------
     mark_clean(room) {
         frappe.call({
             method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.mark_room_clean",
             args: { room: room },
+            freeze: true,
             callback: (r) => {
-                frappe.show_alert({ message: __("Room {0} marked Clean!", [room]), indicator: "green" });
+                frappe.show_alert({
+                    message: __("Room {0} marked clean and ready for guests!", [room]),
+                    indicator: "green"
+                });
                 this.load_data();
             }
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // Render Operations Tabs: Arrivals, Departures, In-House, Housekeeping
+    // ----------------------------------------------------------------------
+    render_arrivals() {
+        let arrivals = this.data.arrivals || [];
+        let currency = frappe.defaults.get_default("currency") || "₹";
+
+        if (arrivals.length === 0) {
+            this.$wrapper.find("#pane-arrivals").html(`<div class="text-muted p-4 text-center">${__("No expected arrivals.")}</div>`);
+            return;
+        }
+
+        let html = `
+            <div class="dash-table-wrapper">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>${__("Guest Name")}</th>
+                            <th>${__("Dates")}</th>
+                            <th>${__("Room Type")}</th>
+                            <th>${__("Assigned Room")}</th>
+                            <th>${__("Advance Paid")}</th>
+                            <th>${__("Actions")}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        arrivals.forEach(a => {
+            html += `
+                <tr>
+                    <td>
+                        <strong>${frappe.utils.escape_html(a.guest_name)}</strong>
+                        <div class="text-muted" style="font-size: 11px;">📱 ${a.contact_phone || 'N/A'} · #${a.name}</div>
+                    </td>
+                    <td>
+                        ${a.arrival_date} ➔ ${a.departure_date}
+                        <div class="text-muted" style="font-size: 11px;">${a.nights} Night(s)</div>
+                    </td>
+                    <td>${a.room_type}</td>
+                    <td>
+                        ${a.assigned_room ? `<strong style="font-size:14px;">Room ${a.assigned_room}</strong>` : `<span class="text-warning font-bold">Unassigned</span>`}
+                    </td>
+                    <td>
+                        ${a.advance_paid > 0 ? 
+                            `<span class="table-badge badge-clean">Paid ${format_currency(a.advance_paid, currency)}</span>` : 
+                            `<span class="table-badge badge-dirty">Unpaid</span>`
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-xs btn-primary btn-checkin-arrival" data-res="${a.name}" data-room="${a.assigned_room || ''}">
+                            ⚡ ${__("Check-In Now")}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        this.$wrapper.find("#pane-arrivals").html(html);
+
+        // Bind Check-In button on arrival row
+        this.$wrapper.find(".btn-checkin-arrival").on("click", (e) => {
+            let res = $(e.currentTarget).data("res");
+            let room = $(e.currentTarget).data("room");
+
+            if (room) {
+                frappe.confirm(__("Check in reservation #{0} for Room {1}?", [res, room]), () => {
+                    this.execute_arrival_checkin(res, room);
+                });
+            } else {
+                // Let staff pick a clean room
+                let clean_rooms = (this.data.masters && this.data.masters.clean_rooms) || [];
+                let room_options = clean_rooms.map(x => ({ label: `Room ${x.room_number} (${x.room_type})`, value: x.room }));
+
+                let d = new frappe.ui.Dialog({
+                    title: __("Assign Room for Check-In"),
+                    fields: [
+                        {
+                            label: __("Select Clean Room"),
+                            fieldname: "room",
+                            fieldtype: "Select",
+                            options: room_options,
+                            reqd: 1
+                        }
+                    ],
+                    primary_action_label: __("Confirm Check-In"),
+                    primary_action: (vals) => {
+                        d.hide();
+                        this.execute_arrival_checkin(res, vals.room);
+                    }
+                });
+                d.show();
+            }
+        });
+    }
+
+    execute_arrival_checkin(res, room) {
+        frappe.call({
+            method: "hotel_pms.hotel_pms.page.hotel_dashboard.hotel_dashboard.checkin_reservation",
+            args: { reservation: res, room: room },
+            freeze: true,
+            callback: (r) => {
+                frappe.show_alert({
+                    message: __("Checked in successfully! Room {0} is now Occupied.", [room]),
+                    indicator: "green"
+                });
+                this.load_data();
+            }
+        });
+    }
+
+    render_departures() {
+        let departures = this.data.departures || [];
+        let currency = frappe.defaults.get_default("currency") || "₹";
+
+        if (departures.length === 0) {
+            this.$wrapper.find("#pane-departures").html(`<div class="text-muted p-4 text-center">${__("No departures scheduled for today.")}</div>`);
+            return;
+        }
+
+        let html = `
+            <div class="dash-table-wrapper">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>${__("Room")}</th>
+                            <th>${__("Guest Name")}</th>
+                            <th>${__("Stay Period")}</th>
+                            <th>${__("Balance Due")}</th>
+                            <th>${__("Action")}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        departures.forEach(d => {
+            html += `
+                <tr>
+                    <td><strong style="font-size: 15px;">Room ${d.room}</strong></td>
+                    <td>
+                        <strong>${frappe.utils.escape_html(d.guest_name)}</strong>
+                        <div class="text-muted" style="font-size: 11px;">📱 ${d.guest_phone || 'N/A'}</div>
+                    </td>
+                    <td>
+                        ${d.checkin_date} ➔ ${d.expected_checkout}
+                        <div class="text-danger" style="font-size: 11px; font-weight:700;">${d.departure_status || 'Due'}</div>
+                    </td>
+                    <td>
+                        ${d.balance_due > 0 ? 
+                            `<span class="table-badge badge-dirty font-bold">Due ${format_currency(d.balance_due, currency)}</span>` : 
+                            `<span class="table-badge badge-clean">✓ Paid</span>`
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-xs btn-default btn-departure-checkout" data-stay="${d.stay}" data-room="${d.room}" data-balance="${d.balance_due}">
+                            🚪 ${__("Checkout")}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        this.$wrapper.find("#pane-departures").html(html);
+
+        this.$wrapper.find(".btn-departure-checkout").on("click", (e) => {
+            let stay = $(e.currentTarget).data("stay");
+            let room = $(e.currentTarget).data("room");
+            let bal = flt($(e.currentTarget).data("balance"));
+            this.open_checkout_dialog(stay, room, bal);
+        });
+    }
+
+    render_inhouse() {
+        let inhouse = this.data.inhouse || [];
+        let currency = frappe.defaults.get_default("currency") || "₹";
+
+        if (inhouse.length === 0) {
+            this.$wrapper.find("#pane-inhouse").html(`<div class="text-muted p-4 text-center">${__("No in-house guests currently.")}</div>`);
+            return;
+        }
+
+        let html = `
+            <div class="dash-table-wrapper">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>${__("Room")}</th>
+                            <th>${__("Guest Name")}</th>
+                            <th>${__("Dates")}</th>
+                            <th>${__("Charges")}</th>
+                            <th>${__("Paid")}</th>
+                            <th>${__("Balance Due")}</th>
+                            <th>${__("Actions")}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        inhouse.forEach(g => {
+            html += `
+                <tr>
+                    <td><strong style="font-size: 15px;">Room ${g.room}</strong> <div class="text-muted" style="font-size:11px;">${g.room_type}</div></td>
+                    <td>
+                        <strong>${frappe.utils.escape_html(g.guest_name)}</strong>
+                        <div class="text-muted" style="font-size: 11px;">📱 ${g.guest_phone || 'N/A'} · #${g.stay}</div>
+                    </td>
+                    <td>
+                        ${g.checkin_date} ➔ ${g.expected_checkout}
+                        <div class="text-muted" style="font-size: 11px;">${g.total_nights} Nights (${g.departure_status || ''})</div>
+                    </td>
+                    <td>${format_currency(g.total_charges, currency)}</td>
+                    <td class="text-success font-bold">${format_currency(g.total_paid, currency)}</td>
+                    <td>
+                        ${g.balance_due > 0 ? 
+                            `<span class="table-badge badge-dirty font-bold">Due ${format_currency(g.balance_due, currency)}</span>` : 
+                            `<span class="table-badge badge-clean">✓ Paid</span>`
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-xs btn-default btn-row-charge" data-stay="${g.stay}" data-room="${g.room}">➕ ${__("Charge")}</button>
+                        <button class="btn btn-xs btn-default btn-row-pay" data-stay="${g.stay}" data-room="${g.room}" data-balance="${g.balance_due}">💵 ${__("Pay")}</button>
+                        <button class="btn btn-xs btn-danger btn-row-checkout" data-stay="${g.stay}" data-room="${g.room}" data-balance="${g.balance_due}">🚪 ${__("Out")}</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        this.$wrapper.find("#pane-inhouse").html(html);
+
+        this.$wrapper.find(".btn-row-charge").on("click", (e) => {
+            let stay = $(e.currentTarget).data("stay");
+            let room = $(e.currentTarget).data("room");
+            this.open_add_charge_dialog(stay, room);
+        });
+
+        this.$wrapper.find(".btn-row-pay").on("click", (e) => {
+            let stay = $(e.currentTarget).data("stay");
+            let room = $(e.currentTarget).data("room");
+            let bal = flt($(e.currentTarget).data("balance"));
+            this.open_collect_payment_dialog(stay, room, bal);
+        });
+
+        this.$wrapper.find(".btn-row-checkout").on("click", (e) => {
+            let stay = $(e.currentTarget).data("stay");
+            let room = $(e.currentTarget).data("room");
+            let bal = flt($(e.currentTarget).data("balance"));
+            this.open_checkout_dialog(stay, room, bal);
+        });
+    }
+
+    render_housekeeping() {
+        let tasks = this.data.housekeeping || [];
+
+        if (tasks.length === 0) {
+            this.$wrapper.find("#pane-housekeeping").html(`<div class="text-muted p-4 text-center">✨ ${__("All rooms are clean! No pending housekeeping tasks.")}</div>`);
+            return;
+        }
+
+        let html = `
+            <div class="dash-table-wrapper">
+                <table class="hotel-table">
+                    <thead>
+                        <tr>
+                            <th>${__("Room")}</th>
+                            <th>${__("Task Type")}</th>
+                            <th>${__("Priority")}</th>
+                            <th>${__("Assigned Date")}</th>
+                            <th>${__("Notes")}</th>
+                            <th>${__("Action")}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        tasks.forEach(t => {
+            let pColor = t.priority === "Urgent" || t.priority === "High" ? "badge-dirty" : "badge-clean";
+            html += `
+                <tr>
+                    <td><strong style="font-size: 15px;">Room ${t.room}</strong></td>
+                    <td><strong>${t.task_type}</strong></td>
+                    <td><span class="table-badge ${pColor}">${t.priority}</span></td>
+                    <td>${t.assigned_date}</td>
+                    <td class="text-muted">${frappe.utils.escape_html(t.notes || 'N/A')}</td>
+                    <td>
+                        <button class="btn btn-xs btn-success btn-hk-clean" data-room="${t.room}">
+                            ✓ ${__("Mark Clean")}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        this.$wrapper.find("#pane-housekeeping").html(html);
+
+        this.$wrapper.find(".btn-hk-clean").on("click", (e) => {
+            let room = $(e.currentTarget).data("room");
+            this.mark_clean(room);
         });
     }
 }
